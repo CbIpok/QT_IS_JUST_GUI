@@ -5,12 +5,8 @@
 #include <ostream>
 #include "record3.hpp"
 
-struct Cell {
-    bool     occupied;
-    Record   data;
-    Cell();
-};
-
+// Closed addressing hash table implemented in an object-oriented manner.
+// Each bucket (Cell) stores a single record or is marked as free.
 class HashTable {
 public:
     explicit HashTable(size_t initialSize, double maxLoad = 0.75);
@@ -27,6 +23,12 @@ public:
     int  getOriginalLine(size_t index) const;
 
 private:
+    struct Cell {
+        bool   occupied;
+        Record data;
+        Cell();
+    };
+
     size_t m_size, m_count, m_initialSize;
     double m_maxLoadFactor, m_minLoadFactor;
     Cell* table;
