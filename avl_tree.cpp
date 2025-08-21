@@ -1,29 +1,30 @@
-#include <string>
-#include <vector>
 #include "avl_tree.h"
+
 #include <iostream>
 
-static int height(AVLNode* n) {
+// ---- Static helpers ------------------------------------------------------
+
+int AVLTree::height(Node* n) {
     return n ? n->height : 0;
 }
 
-static int maxint(int a, int b) {
+int AVLTree::maxint(int a, int b) {
     return (a > b) ? a : b;
 }
 
-static void update_height(AVLNode* n) {
+void AVLTree::update_height(Node* n) {
     if (n) {
         n->height = 1 + maxint(height(n->left), height(n->right));
     }
 }
 
-static int get_balance(AVLNode* n) {
+int AVLTree::get_balance(Node* n) {
     return n ? height(n->left) - height(n->right) : 0;
 }
 
-static AVLNode* rotate_right(AVLNode* y) {
-    AVLNode* x = y->left;
-    AVLNode* T2 = x->right;
+AVLTree::Node* AVLTree::rotate_right(Node* y) {
+    Node* x = y->left;
+    Node* T2 = x->right;
 
     y->left = T2;
     x->right = y;
@@ -34,9 +35,9 @@ static AVLNode* rotate_right(AVLNode* y) {
     return x;
 }
 
-static AVLNode* rotate_left(AVLNode* x) {
-    AVLNode* y = x->right;
-    AVLNode* T2 = y->left;
+AVLTree::Node* AVLTree::rotate_left(Node* x) {
+    Node* y = x->right;
+    Node* T2 = y->left;
 
     x->right = T2;
     y->left = x;
@@ -47,7 +48,7 @@ static AVLNode* rotate_left(AVLNode* x) {
     return y;
 }
 
-static int key_compare(const PersonKey& a, const PersonKey& b) {
+int AVLTree::key_compare(const PersonKey& a, const PersonKey& b) {
     if (a.fullName < b.fullName) return -1;
     if (a.fullName > b.fullName) return 1;
     if (a.phoneNumber < b.phoneNumber) return -1;
@@ -55,18 +56,18 @@ static int key_compare(const PersonKey& a, const PersonKey& b) {
     return 0;
 }
 
-static AVLNode* create_node(const PersonKey& key, int lineNumber) {
-    AVLNode* node = new AVLNode;
+AVLTree::Node* AVLTree::create_node(const PersonKey& key, int lineNumber) {
+    Node* node = new Node;
     node->key = key;
     node->height = 1;
-    node->left = 0;
-    node->right = 0;
+    node->left = nullptr;
+    node->right = nullptr;
     node->lineNumbers.clear();
     node->lineNumbers.push_back(lineNumber);
     return node;
 }
 
-static AVLNode* balance_node(AVLNode* node) {
+AVLTree::Node* AVLTree::balance_node(Node* node) {
     update_height(node);
     int bal = get_balance(node);
 
@@ -89,14 +90,14 @@ static AVLNode* balance_node(AVLNode* node) {
     return node;
 }
 
-static AVLNode* min_node(AVLNode* node) {
+AVLTree::Node* AVLTree::min_node(Node* node) {
     while (node && node->left) {
         node = node->left;
     }
     return node;
 }
 
-static AVLNode* insert_node(AVLNode* node, const PersonKey& key, int lineNumber) {
+AVLTree::Node* AVLTree::insert_node(Node* node, const PersonKey& key, int lineNumber) {
     if (!node) return create_node(key, lineNumber);
 
     int cmp = key_compare(key, node->key);
@@ -115,8 +116,8 @@ static AVLNode* insert_node(AVLNode* node, const PersonKey& key, int lineNumber)
     return balance_node(node);
 }
 
-static AVLNode* remove_node(AVLNode* node, const PersonKey& key, bool& removed) {
-    if (!node) return 0;
+AVLTree::Node* AVLTree::remove_node(Node* node, const PersonKey& key, bool& removed) {
+    if (!node) return nullptr;
 
     int cmp = key_compare(key, node->key);
     if (cmp < 0) {
@@ -129,17 +130,17 @@ static AVLNode* remove_node(AVLNode* node, const PersonKey& key, bool& removed) 
         // Node found
         removed = true;
         if (!node->left) {
-            AVLNode* temp = node->right;
+            Node* temp = node->right;
             delete node;
             return temp;
         }
         else if (!node->right) {
-            AVLNode* temp = node->left;
+            Node* temp = node->left;
             delete node;
             return temp;
         }
         bool dummy = false;
-        AVLNode* temp = min_node(node->right);
+        Node* temp = min_node(node->right);
         node->key = temp->key;
         node->lineNumbers = temp->lineNumbers;
         node->right = remove_node(node->right, temp->key, dummy);
@@ -148,111 +149,40 @@ static AVLNode* remove_node(AVLNode* node, const PersonKey& key, bool& removed) 
     return balance_node(node);
 }
 
-static AVLNode* search_node(AVLNode* node, const PersonKey& key) {
-    if (!node) return 0;
+AVLTree::Node* AVLTree::search_node(Node* node, const PersonKey& key) {
+    if (!node) return nullptr;
     int cmp = key_compare(key, node->key);
     if (cmp < 0) return search_node(node->left, key);
     else if (cmp > 0) return search_node(node->right, key);
     else return node;
 }
 
-static void free_node(AVLNode* node) {
+void AVLTree::free_node(Node* node) {
     if (!node) return;
     free_node(node->left);
     free_node(node->right);
     delete node;
 }
 
-static void inorder_traversal_nodes(AVLNode* node, std::vector<AVLNode*>& result) {
+void AVLTree::inorder_traversal_nodes(Node* node, std::vector<Node*>& result) {
     if (!node) return;
     inorder_traversal_nodes(node->left, result);
     result.push_back(node);
     inorder_traversal_nodes(node->right, result);
 }
 
-static void reverse_inorder_traversal_nodes(AVLNode* node, std::vector<AVLNode*>& result) {
+void AVLTree::reverse_inorder_traversal_nodes(Node* node, std::vector<Node*>& result) {
     if (!node) return;
     reverse_inorder_traversal_nodes(node->right, result);
     result.push_back(node);
     reverse_inorder_traversal_nodes(node->left, result);
 }
 
-// Public functions
-void avl_init(AVLTree* tree) {
-    tree->root = 0;
-}
-
-void avl_insert(AVLTree* tree, const PersonKey& key, int lineNumber) {
-    tree->root = insert_node(tree->root, key, lineNumber);
-}
-
-bool avl_remove(AVLTree* tree, const PersonKey& key) {
-    bool removed = false;
-    tree->root = remove_node(tree->root, key, removed);
-    return removed;
-}
-
-AVLNode* avl_search(AVLTree* tree, const PersonKey& key) {
-    return search_node(tree->root, key);
-}
-
-std::vector<AVLNode*> avl_inorder_nodes(const AVLTree* tree) {
-    std::vector<AVLNode*> result;
-    inorder_traversal_nodes(tree->root, result);
-    return result;
-}
-
-std::vector<AVLNode*> avl_reverse_inorder_nodes(const AVLTree* tree) {
-    std::vector<AVLNode*> result;
-    reverse_inorder_traversal_nodes(tree->root, result);
-    return result;
-}
-
-void avl_free(AVLTree* tree) {
-    free_node(tree->root);
-    tree->root = 0;
-}
-
-bool avl_remove_line(AVLTree* tree, const PersonKey& key, int lineNumber) {
-    AVLNode* node = avl_search(tree, key);
-    if (!node) {
-        // Node with such key not found
-        return false;
-    }
-
-    int index = -1;
-    int size = node->lineNumbers.size();
-    for (int i = 0; i < size; i++) {
-        if (node->lineNumbers[i] == lineNumber) {
-            index = i;
-            break;
-        }
-    }
-
-    if (index == -1) {
-        // This line number not found for this key
-        return false;
-    }
-
-    // Remove the line number by shifting
-    for (int i = index; i < size - 1; i++) {
-        node->lineNumbers[i] = node->lineNumbers[i + 1];
-    }
-    node->lineNumbers.pop_back();
-
-    // If empty after removal, remove the whole node
-    if (node->lineNumbers.empty()) {
-        return avl_remove(tree, key);
-    }
-
-    return true;
-}
-
 static const char* sdown = "  |";
 static const char* slast = "  `";
 static const char* snone = "   ";
 
-static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems, char childType) {
+void AVLTree::print_tree_recursive(Node* node, std::vector<const char*>& stems, char childType) {
     if (!node) return;
 
     for (std::size_t i = 0; i < stems.size(); i++) {
@@ -279,8 +209,8 @@ static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems,
     }
     std::cout << "\n";
 
-    AVLNode* left = node->left;
-    AVLNode* right = node->right;
+    Node* left = node->left;
+    Node* right = node->right;
 
     if (!left && !right) return;
 
@@ -313,11 +243,82 @@ static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems,
     stems.resize(oldSize);
 }
 
-void avl_print_tree(const AVLTree* tree) {
-    if (!tree || !tree->root) {
+// ---- Public API ----------------------------------------------------------
+
+AVLTree::AVLTree() : root(nullptr) {}
+
+AVLTree::~AVLTree() {
+    free_node(root);
+    root = nullptr;
+}
+
+void AVLTree::insert(const PersonKey& key, int lineNumber) {
+    root = insert_node(root, key, lineNumber);
+}
+
+bool AVLTree::remove(const PersonKey& key) {
+    bool removed = false;
+    root = remove_node(root, key, removed);
+    return removed;
+}
+
+AVLTree::Node* AVLTree::search(const PersonKey& key) const {
+    return search_node(root, key);
+}
+
+std::vector<AVLTree::Node*> AVLTree::inorderNodes() const {
+    std::vector<Node*> result;
+    inorder_traversal_nodes(root, result);
+    return result;
+}
+
+std::vector<AVLTree::Node*> AVLTree::reverseInorderNodes() const {
+    std::vector<Node*> result;
+    reverse_inorder_traversal_nodes(root, result);
+    return result;
+}
+
+bool AVLTree::removeLine(const PersonKey& key, int lineNumber) {
+    Node* node = search(key);
+    if (!node) {
+        // Node with such key not found
+        return false;
+    }
+
+    int index = -1;
+    int size = static_cast<int>(node->lineNumbers.size());
+    for (int i = 0; i < size; i++) {
+        if (node->lineNumbers[i] == lineNumber) {
+            index = i;
+            break;
+        }
+    }
+
+    if (index == -1) {
+        // This line number not found for this key
+        return false;
+    }
+
+    // Remove the line number by shifting
+    for (int i = index; i < size - 1; i++) {
+        node->lineNumbers[i] = node->lineNumbers[i + 1];
+    }
+    node->lineNumbers.pop_back();
+
+    // If empty after removal, remove the whole node
+    if (node->lineNumbers.empty()) {
+        return remove(key);
+    }
+
+    return true;
+}
+
+void AVLTree::printTree() const {
+    if (!root) {
         std::cout << "(empty tree)\n";
         return;
     }
     std::vector<const char*> stems;
-    print_tree_recursive(tree->root, stems, '\0'); // root has no parent
+    print_tree_recursive(root, stems, '\0'); // root has no parent
 }
+

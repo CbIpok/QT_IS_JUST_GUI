@@ -2,6 +2,7 @@
 #include <functional>
 #include <iostream>
 #include <fstream>
+#include <cstdint>
 
 // ---------------- Cell ----------------
 
