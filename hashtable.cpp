@@ -1,11 +1,12 @@
-﻿#include "hashtable.hpp"
+#include "hashtable.hpp"
 #include <functional>
 #include <iostream>
 #include <fstream>
+#include <cstdint>
 
-// ---------------- Cell ----------------
+// ---------------- HashTable::Cell ----------------
 
-Cell::Cell()
+HashTable::Cell::Cell()
     : occupied(false),
     data({ "", 0, "", 0LL, -1 })
 {}
