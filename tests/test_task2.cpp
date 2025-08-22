@@ -1,8 +1,9 @@
 #include <cassert>
 #include <vector>
 #include <iostream>
-#include "merge_sort.hpp"
-#include "modnaminecraft.hpp"
+#include "../merge_sort.hpp"
+#include "../modnaminecraft.hpp"
+
 
 static void test_sort_and_search() {
     std::vector<Record> recs = {

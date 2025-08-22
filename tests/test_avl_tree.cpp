@@ -1,6 +1,7 @@
 #include <cassert>
 #include <iostream>
-#include "avl_tree.h"
+#include "../avl_tree.h"
+
 
 int main() {
     AVLTree tree;

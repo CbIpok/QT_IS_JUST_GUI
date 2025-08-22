@@ -1,7 +1,8 @@
 #include <cassert>
 #include <sstream>
 #include <iostream>
-#include "doubly_linked_array.hpp"
+#include "../doubly_linked_array.hpp"
+
 
 int main() {
     DoublyLinkedArray<int> list;

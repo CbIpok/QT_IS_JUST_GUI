@@ -3,7 +3,8 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm>
-#include "hashtable.hpp"
+#include "../hashtable.hpp"
+
 
 int main() {
     HashTable ht(4);
