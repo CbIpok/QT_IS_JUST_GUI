@@ -135,6 +135,10 @@
     <ClCompile Include="KursAch.cpp" />
     <ClCompile Include="merge_sort.cpp" />
     <ClCompile Include="modnaminecraft.cpp" />
+    <ClCompile Include="tests\test_avl_tree.cpp" />
+    <ClCompile Include="tests\test_doubly_linked_array.cpp" />
+    <ClCompile Include="tests\test_hashtable.cpp" />
+    <ClCompile Include="tests\test_task2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="avl_tree.h" />
