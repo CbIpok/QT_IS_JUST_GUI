@@ -139,6 +139,8 @@
     <ClCompile Include="tests\test_doubly_linked_array.cpp" />
     <ClCompile Include="tests\test_hashtable.cpp" />
     <ClCompile Include="tests\test_task2.cpp" />
+    <ClCompile Include="tests\test_main.cpp" />
+
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="avl_tree.h" />

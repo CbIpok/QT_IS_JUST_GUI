@@ -1,11 +1,12 @@
-#include <cassert>
+
+// Google Test for merge sort and search routines from task 2.2
+#include <gtest/gtest.h>
 #include <vector>
-#include <iostream>
 #include "../merge_sort.hpp"
 #include "../modnaminecraft.hpp"
 
+TEST(Task2, SortAndSearch) {
 
-static void test_sort_and_search() {
     std::vector<Record> recs = {
         {"Ivanov","I","I","Street1",111111,3,0},
         {"Petrov","P","P","Street2",222222,1,1},
@@ -13,19 +14,16 @@ static void test_sort_and_search() {
         {"Fedorov","F","F","Street4",444444,1,3}
     };
     mergeSort(recs.data(), 0, static_cast<int>(recs.size()) - 1);
+
     std::vector<int> keys;
     for (const auto &r : recs) keys.push_back(r.applicationNumber);
-    assert((keys == std::vector<int>{1,1,2,3}));
-    auto bin = binarySearch(keys, 1);
-    assert(bin.first == 0);
-    assert(bin.second > 0);
-    auto lin = linearSearch(keys, 2);
-    assert((lin.first == std::vector<int>{2}));
-    assert(lin.second == static_cast<int>(keys.size()));
-}
+    EXPECT_EQ(keys, (std::vector<int>{1, 1, 2, 3}));
 
-int main() {
-    test_sort_and_search();
-    std::cout << "Module 2.2 tests passed\n";
-    return 0;
+    auto bin = binarySearch(keys, 1);
+    EXPECT_EQ(bin.first, 0);
+    EXPECT_GT(bin.second, 0);
+
+    auto lin = linearSearch(keys, 2);
+    EXPECT_EQ(lin.first, (std::vector<int>{2}));
+    EXPECT_EQ(lin.second, static_cast<int>(keys.size()));
 }

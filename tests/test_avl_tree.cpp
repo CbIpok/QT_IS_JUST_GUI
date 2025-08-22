@@ -1,9 +1,7 @@
-#include <cassert>
-#include <iostream>
+#include <gtest/gtest.h>
 #include "../avl_tree.h"
 
-
-int main() {
+TEST(AVLTree, FullWorkflow) {
     AVLTree tree;
     tree.insert({"Ivanov", 100}, 1);
     tree.insert({"Petrov", 200}, 2);
@@ -12,37 +10,39 @@ int main() {
 
     // search existing key
     auto node = tree.search({"Petrov", 200});
-    assert(node && node->lineNumbers.size() == 2);
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->lineNumbers.size(), 2);
 
     // check in-order traversal (ascending)
     auto inorder = tree.inorderNodes();
-    assert(inorder.size() == 3);
-    assert(inorder[0]->key.fullName == "Ivanov");
-    assert(inorder[1]->key.fullName == "Petrov");
-    assert(inorder[2]->key.fullName == "Sidorov");
+    ASSERT_EQ(inorder.size(), 3);
+    EXPECT_EQ(inorder[0]->key.fullName, "Ivanov");
+    EXPECT_EQ(inorder[1]->key.fullName, "Petrov");
+    EXPECT_EQ(inorder[2]->key.fullName, "Sidorov");
 
     // check reverse in-order (descending)
     auto rev = tree.reverseInorderNodes();
-    assert(rev[0]->key.fullName == "Sidorov");
-    assert(rev[2]->key.fullName == "Ivanov");
+    EXPECT_EQ(rev[0]->key.fullName, "Sidorov");
+    EXPECT_EQ(rev[2]->key.fullName, "Ivanov");
 
     // remove specific line for a key
-    assert(tree.removeLine({"Petrov", 200}, 5));
+    EXPECT_TRUE(tree.removeLine({"Petrov", 200}, 5));
     node = tree.search({"Petrov", 200});
-    assert(node && node->lineNumbers.size() == 1 && node->lineNumbers[0] == 2);
+    ASSERT_NE(node, nullptr);
+    EXPECT_EQ(node->lineNumbers.size(), 1);
+    EXPECT_EQ(node->lineNumbers[0], 2);
 
     // remove entire node
-    assert(tree.remove({"Petrov", 200}));
-    assert(tree.search({"Petrov", 200}) == nullptr);
+    EXPECT_TRUE(tree.remove({"Petrov", 200}));
+    EXPECT_EQ(tree.search({"Petrov", 200}), nullptr);
 
     // removing last line deletes node
-    assert(tree.removeLine({"Ivanov", 100}, 1));
-    assert(tree.search({"Ivanov", 100}) == nullptr);
+    EXPECT_TRUE(tree.removeLine({"Ivanov", 100}, 1));
+    EXPECT_EQ(tree.search({"Ivanov", 100}), nullptr);
 
     auto remaining = tree.inorderNodes();
-    assert(remaining.size() == 1);
-    assert(remaining[0]->key.fullName == "Sidorov");
-
-    std::cout << "AVL tree tests passed\n";
-    return 0;
+    ASSERT_EQ(remaining.size(), 1);
+    EXPECT_EQ(remaining[0]->key.fullName, "Sidorov");
 }
+
+
