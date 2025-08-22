@@ -12,6 +12,11 @@ public:
     explicit HashTable(size_t initialSize, double maxLoad = 0.75);
     ~HashTable();
 
+    HashTable(const HashTable& other);
+    HashTable& operator=(const HashTable& other);
+    HashTable(HashTable&& other) noexcept;
+    HashTable& operator=(HashTable&& other) noexcept;
+
     bool insert(const Record& rec);
     bool remove(const Record& rec);
     bool search(const std::string& fio, int applicationNumber,

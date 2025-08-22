@@ -26,6 +26,64 @@ HashTable::~HashTable() {
     delete[] table;
 }
 
+HashTable::HashTable(const HashTable& other)
+    : m_size(other.m_size),
+      m_count(other.m_count),
+      m_initialSize(other.m_initialSize),
+      m_maxLoadFactor(other.m_maxLoadFactor),
+      m_minLoadFactor(other.m_minLoadFactor),
+      table(new Cell[other.m_size])
+{
+    for (size_t i = 0; i < m_size; ++i) {
+        table[i] = other.table[i];
+    }
+}
+
+HashTable& HashTable::operator=(const HashTable& other) {
+    if (this == &other) return *this;
+    Cell* newTable = new Cell[other.m_size];
+    for (size_t i = 0; i < other.m_size; ++i) {
+        newTable[i] = other.table[i];
+    }
+    delete[] table;
+    table = newTable;
+    m_size = other.m_size;
+    m_count = other.m_count;
+    m_initialSize = other.m_initialSize;
+    m_maxLoadFactor = other.m_maxLoadFactor;
+    m_minLoadFactor = other.m_minLoadFactor;
+    return *this;
+}
+
+HashTable::HashTable(HashTable&& other) noexcept
+    : m_size(other.m_size),
+      m_count(other.m_count),
+      m_initialSize(other.m_initialSize),
+      m_maxLoadFactor(other.m_maxLoadFactor),
+      m_minLoadFactor(other.m_minLoadFactor),
+      table(other.table)
+{
+    other.table = nullptr;
+    other.m_size = 0;
+    other.m_count = 0;
+}
+
+HashTable& HashTable::operator=(HashTable&& other) noexcept {
+    if (this != &other) {
+        delete[] table;
+        table = other.table;
+        m_size = other.m_size;
+        m_count = other.m_count;
+        m_initialSize = other.m_initialSize;
+        m_maxLoadFactor = other.m_maxLoadFactor;
+        m_minLoadFactor = other.m_minLoadFactor;
+        other.table = nullptr;
+        other.m_size = 0;
+        other.m_count = 0;
+    }
+    return *this;
+}
+
 std::string HashTable::makeKey(const std::string& fio, int applicationNumber) const {
     return fio + "#" + std::to_string(applicationNumber);
 }
