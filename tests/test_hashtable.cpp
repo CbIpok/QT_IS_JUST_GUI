@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 #include <fstream>
-#include <sstream>
-#include <algorithm>
-#include "../hashtable.hpp"
+#include <cassert>
+#include <fstream>
+#include <iostream>
 
 TEST(HashTable, BasicOperations) {
     HashTable ht(4);
@@ -28,6 +28,7 @@ TEST(HashTable, BasicOperations) {
     ht.saveToFile("ht_test.txt");
     std::ifstream f("ht_test.txt");
     std::string firstLine; std::getline(f, firstLine);
+
     EXPECT_NE(firstLine.find("Idx"), std::string::npos);
 }
 
@@ -39,15 +40,17 @@ TEST(HashTable, AutomaticExpansion) {
         EXPECT_TRUE(small.insert(r));
     }
 
+
     // capture printed table to determine current capacity
     std::ostringstream oss; small.print(oss);
     std::string dump = oss.str();
     size_t lines = std::count(dump.begin(), dump.end(), '\n');
     // subtract header line to get number of buckets
     size_t buckets = lines > 0 ? lines - 1 : 0;
+  
+
     EXPECT_GT(buckets, 2);
 
     size_t idx; int steps;
     EXPECT_TRUE(small.search("Name9", 9, idx, steps));
 }
-

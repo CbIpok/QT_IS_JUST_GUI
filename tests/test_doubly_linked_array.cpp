@@ -1,3 +1,4 @@
+
 #include <gtest/gtest.h>
 #include <sstream>
 #include "../doubly_linked_array.hpp"
@@ -19,4 +20,3 @@ TEST(DoublyLinkedArray, BasicOperations) {
     list.print(oss);
     EXPECT_EQ(oss.str(), "1 <-> 3");
 }
-

@@ -51,6 +51,7 @@
     <ClCompile Include="tests\test_main.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="hashtable.hpp">
