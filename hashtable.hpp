@@ -15,8 +15,8 @@ public:
 
     HashTable(const HashTable& other) = default;
     HashTable& operator=(const HashTable& other) = default;
-    HashTable(HashTable&& other) noexcept = default;
-    HashTable& operator=(HashTable&& other) noexcept = default;
+    HashTable(HashTable&& other) noexcept;
+    HashTable& operator=(HashTable&& other) noexcept;
 
     bool insert(const Record& rec);
     bool remove(const Record& rec);
