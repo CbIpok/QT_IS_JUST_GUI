@@ -55,3 +55,14 @@ TEST(HashTable, AutomaticExpansion) {
     size_t idx; int steps;
     EXPECT_TRUE(small.search("Name9", 9, idx, steps));
 }
+
+TEST(HashTable, MoveThenClear) {
+    HashTable h1(4);
+    Record a{"Ivanov", 1, "Street", 123, 1};
+    h1.insert(a);
+    HashTable h2 = std::move(h1);
+    h1.clear();
+    size_t idx; int steps;
+    EXPECT_FALSE(h1.search(a.fio, a.applicationNumber, idx, steps));
+    EXPECT_TRUE(h2.search(a.fio, a.applicationNumber, idx, steps));
+}

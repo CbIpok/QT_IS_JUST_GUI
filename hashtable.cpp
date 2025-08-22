@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 #include <cstdint>
+#include <new>
+using std::vector;
 
 // ---------------- HashTable::Cell ----------------
 
@@ -15,15 +17,43 @@ HashTable::Cell::Cell()
 
 HashTable::HashTable(size_t initialSize, double maxLoad)
     : m_size(initialSize),
-    m_count(0),
-    m_initialSize(initialSize),
-    m_maxLoadFactor(maxLoad),
-    m_minLoadFactor(0.25),
-    table(new Cell[initialSize])
+      m_count(0),
+      m_initialSize(initialSize),
+      m_maxLoadFactor(maxLoad),
+      m_minLoadFactor(0.25),
+      table(initialSize)
 {}
 
-HashTable::~HashTable() {
-    delete[] table;
+HashTable::HashTable(HashTable&& other) noexcept
+    : m_size(other.m_size),
+      m_count(other.m_count),
+      m_initialSize(other.m_initialSize),
+      m_maxLoadFactor(other.m_maxLoadFactor),
+      m_minLoadFactor(other.m_minLoadFactor),
+      table(std::move(other.table))
+{
+    other.m_count = 0;
+    other.m_size = other.m_initialSize;
+    // Recreate the source table so it can be safely reused in MSVC debug builds
+    other.table.~vector<Cell>();
+    new (&other.table) vector<Cell>(other.m_initialSize);
+}
+
+HashTable& HashTable::operator=(HashTable&& other) noexcept {
+    if (this != &other) {
+        table = std::move(other.table);
+        m_size = other.m_size;
+        m_count = other.m_count;
+        m_initialSize = other.m_initialSize;
+        m_maxLoadFactor = other.m_maxLoadFactor;
+        m_minLoadFactor = other.m_minLoadFactor;
+
+        other.m_count = 0;
+        other.m_size = other.m_initialSize;
+        other.table.~vector<Cell>();
+        new (&other.table) vector<Cell>(other.m_initialSize);
+    }
+    return *this;
 }
 
 std::string HashTable::makeKey(const std::string& fio, int applicationNumber) const {
@@ -53,10 +83,10 @@ size_t HashTable::hashSecondary(size_t base, const std::string& key, size_t iter
 }
 
 void HashTable::rehash(size_t newSize) {
-    Cell* oldTable = table;
-    size_t oldSize = m_size;
+    std::vector<Cell> oldTable = std::move(table);
+    size_t oldSize = oldTable.size();
 
-    table = new Cell[newSize];
+    table.assign(newSize, Cell());
     m_size = newSize;
     m_count = 0;
 
@@ -65,7 +95,6 @@ void HashTable::rehash(size_t newSize) {
             insert(oldTable[i].data);
         }
     }
-    delete[] oldTable;
 }
 
 bool HashTable::insert(const Record& rec) {
@@ -160,8 +189,8 @@ bool HashTable::remove(const Record& rec) {
 }
 
 void HashTable::clear() {
-    delete[] table;
-    table = new Cell[m_size];
+    table.assign(m_initialSize, Cell());
+    m_size = m_initialSize;
     m_count = 0;
 }
 
