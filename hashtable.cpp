@@ -15,74 +15,12 @@ HashTable::Cell::Cell()
 
 HashTable::HashTable(size_t initialSize, double maxLoad)
     : m_size(initialSize),
-    m_count(0),
-    m_initialSize(initialSize),
-    m_maxLoadFactor(maxLoad),
-    m_minLoadFactor(0.25),
-    table(new Cell[initialSize])
+      m_count(0),
+      m_initialSize(initialSize),
+      m_maxLoadFactor(maxLoad),
+      m_minLoadFactor(0.25),
+      table(initialSize)
 {}
-
-HashTable::~HashTable() {
-    delete[] table;
-}
-
-HashTable::HashTable(const HashTable& other)
-    : m_size(other.m_size),
-      m_count(other.m_count),
-      m_initialSize(other.m_initialSize),
-      m_maxLoadFactor(other.m_maxLoadFactor),
-      m_minLoadFactor(other.m_minLoadFactor),
-      table(new Cell[other.m_size])
-{
-    for (size_t i = 0; i < m_size; ++i) {
-        table[i] = other.table[i];
-    }
-}
-
-HashTable& HashTable::operator=(const HashTable& other) {
-    if (this == &other) return *this;
-    Cell* newTable = new Cell[other.m_size];
-    for (size_t i = 0; i < other.m_size; ++i) {
-        newTable[i] = other.table[i];
-    }
-    delete[] table;
-    table = newTable;
-    m_size = other.m_size;
-    m_count = other.m_count;
-    m_initialSize = other.m_initialSize;
-    m_maxLoadFactor = other.m_maxLoadFactor;
-    m_minLoadFactor = other.m_minLoadFactor;
-    return *this;
-}
-
-HashTable::HashTable(HashTable&& other) noexcept
-    : m_size(other.m_size),
-      m_count(other.m_count),
-      m_initialSize(other.m_initialSize),
-      m_maxLoadFactor(other.m_maxLoadFactor),
-      m_minLoadFactor(other.m_minLoadFactor),
-      table(other.table)
-{
-    other.table = nullptr;
-    other.m_size = 0;
-    other.m_count = 0;
-}
-
-HashTable& HashTable::operator=(HashTable&& other) noexcept {
-    if (this != &other) {
-        delete[] table;
-        table = other.table;
-        m_size = other.m_size;
-        m_count = other.m_count;
-        m_initialSize = other.m_initialSize;
-        m_maxLoadFactor = other.m_maxLoadFactor;
-        m_minLoadFactor = other.m_minLoadFactor;
-        other.table = nullptr;
-        other.m_size = 0;
-        other.m_count = 0;
-    }
-    return *this;
-}
 
 std::string HashTable::makeKey(const std::string& fio, int applicationNumber) const {
     return fio + "#" + std::to_string(applicationNumber);
@@ -111,10 +49,10 @@ size_t HashTable::hashSecondary(size_t base, const std::string& key, size_t iter
 }
 
 void HashTable::rehash(size_t newSize) {
-    Cell* oldTable = table;
-    size_t oldSize = m_size;
+    std::vector<Cell> oldTable = std::move(table);
+    size_t oldSize = oldTable.size();
 
-    table = new Cell[newSize];
+    table.assign(newSize, Cell());
     m_size = newSize;
     m_count = 0;
 
@@ -123,7 +61,6 @@ void HashTable::rehash(size_t newSize) {
             insert(oldTable[i].data);
         }
     }
-    delete[] oldTable;
 }
 
 bool HashTable::insert(const Record& rec) {
@@ -218,8 +155,7 @@ bool HashTable::remove(const Record& rec) {
 }
 
 void HashTable::clear() {
-    delete[] table;
-    table = new Cell[m_size];
+    table.assign(m_size, Cell());
     m_count = 0;
 }
 
