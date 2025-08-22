@@ -155,7 +155,9 @@ bool HashTable::remove(const Record& rec) {
 }
 
 void HashTable::clear() {
-    table.assign(m_size, Cell());
+    table.clear();
+    table.resize(m_initialSize);
+    m_size = m_initialSize;
     m_count = 0;
 }
 
