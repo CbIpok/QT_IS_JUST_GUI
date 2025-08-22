@@ -8,7 +8,7 @@
 
 HashTable::Cell::Cell()
     : occupied(false),
-    data({ "", 0, "", 0LL, -1 })
+    data{ "", 0, "", 0LL, -1 }
 {}
 
 // ---------------- HashTable ----------------
