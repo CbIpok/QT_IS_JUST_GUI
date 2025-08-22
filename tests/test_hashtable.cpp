@@ -3,6 +3,7 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include "../hashtable.hpp"
 
 TEST(HashTable, BasicOperations) {
     HashTable ht(4);
