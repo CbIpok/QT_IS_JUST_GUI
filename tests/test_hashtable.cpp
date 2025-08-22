@@ -5,6 +5,7 @@
 #include <algorithm>
 #include "../hashtable.hpp"
 
+
 int main() {
     HashTable ht(4);
     Record a{"Ivanov I I", 1, "Street", 12345, 10};

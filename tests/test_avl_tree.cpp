@@ -2,6 +2,7 @@
 #include <iostream>
 #include "../avl_tree.h"
 
+
 int main() {
     AVLTree tree;
     tree.insert({"Ivanov", 100}, 1);

@@ -4,6 +4,7 @@
 #include "../merge_sort.hpp"
 #include "../modnaminecraft.hpp"
 
+
 static void test_sort_and_search() {
     std::vector<Record> recs = {
         {"Ivanov","I","I","Street1",111111,3,0},
