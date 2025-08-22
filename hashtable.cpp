@@ -155,8 +155,7 @@ bool HashTable::remove(const Record& rec) {
 }
 
 void HashTable::clear() {
-    table.clear();
-    table.resize(m_initialSize);
+    table = std::vector<Cell>(m_initialSize);
     m_size = m_initialSize;
     m_count = 0;
 }
