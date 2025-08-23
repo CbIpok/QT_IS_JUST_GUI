@@ -152,7 +152,7 @@ void menu() {
     }
 }
 
-int main() {
+int main1() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
     menu();
