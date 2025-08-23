@@ -128,22 +128,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="2.2-Dmitrienko.cpp" />
-    <ClCompile Include="2.3-Dmitrienko.cpp" />
+    <ClCompile Include="hashtablemain.cpp" />
     <ClCompile Include="avl_tree.cpp" />
+    <ClCompile Include="doublelistmain.cpp" />
+    <ClCompile Include="DoublyLinkedList.cpp" />
     <ClCompile Include="hashtable.cpp" />
     <ClCompile Include="KursAch.cpp" />
-    <ClCompile Include="merge_sort.cpp" />
-    <ClCompile Include="modnaminecraft.cpp" />
+    <ClCompile Include="treemain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="avl_tree.h" />
+    <ClInclude Include="DoublyLinkedList.hpp" />
     <ClInclude Include="hashtable.hpp" />
-    <ClInclude Include="merge_sort.hpp" />
-    <ClInclude Include="modnaminecraft.hpp" />
-    <ClInclude Include="record2.hpp" />
     <ClInclude Include="record3.hpp" />
-    <ClInclude Include="test4.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

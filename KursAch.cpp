@@ -1,6 +1,6 @@
 ﻿#include <iostream>
 
-int main()
+int main0()
 {
 	return 0;
 }
