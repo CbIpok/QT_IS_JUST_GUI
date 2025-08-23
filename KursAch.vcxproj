@@ -135,6 +135,9 @@
     <ClCompile Include="hashtable.cpp" />
     <ClCompile Include="KursAch.cpp" />
     <ClCompile Include="treemain.cpp" />
+    <ClCompile Include="tests\doubly_linked_list_test.cpp" />
+    <ClCompile Include="tests\hashtable_test.cpp" />
+    <ClCompile Include="tests\tree_test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="avl_tree.h" />
