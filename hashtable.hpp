@@ -14,6 +14,10 @@ struct Cell {
 class HashTable {
 public:
     explicit HashTable(size_t initialSize, double maxLoad = 0.75);
+    HashTable(const HashTable&) = delete;
+    HashTable& operator=(const HashTable&) = delete;
+    HashTable(HashTable&& other) noexcept;
+    HashTable& operator=(HashTable&& other) noexcept;
     ~HashTable();
 
     bool insert(const Record& rec);

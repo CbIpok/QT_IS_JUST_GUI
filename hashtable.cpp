@@ -22,6 +22,35 @@ HashTable::HashTable(size_t initialSize, double maxLoad)
     table(new Cell[initialSize])
 {}
 
+HashTable::HashTable(HashTable&& other) noexcept
+    : m_size(other.m_size),
+      m_count(other.m_count),
+      m_initialSize(other.m_initialSize),
+      m_maxLoadFactor(other.m_maxLoadFactor),
+      m_minLoadFactor(other.m_minLoadFactor),
+      table(other.table)
+{
+    other.table = nullptr;
+    other.m_size = other.m_count = other.m_initialSize = 0;
+    other.m_maxLoadFactor = other.m_minLoadFactor = 0.0;
+}
+
+HashTable& HashTable::operator=(HashTable&& other) noexcept {
+    if (this != &other) {
+        delete[] table;
+        m_size = other.m_size;
+        m_count = other.m_count;
+        m_initialSize = other.m_initialSize;
+        m_maxLoadFactor = other.m_maxLoadFactor;
+        m_minLoadFactor = other.m_minLoadFactor;
+        table = other.table;
+        other.table = nullptr;
+        other.m_size = other.m_count = other.m_initialSize = 0;
+        other.m_maxLoadFactor = other.m_minLoadFactor = 0.0;
+    }
+    return *this;
+}
+
 HashTable::~HashTable() {
     delete[] table;
 }
