@@ -1,5 +1,6 @@
 ﻿#include "hashtable.hpp"
 #include <functional>
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 
