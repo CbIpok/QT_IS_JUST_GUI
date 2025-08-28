@@ -1,10 +1,10 @@
 #include "merge_sort.hpp"
 
-static void merge(Record arr[], int left, int mid, int right) {
+static void merge(OrderRecord arr[], int left, int mid, int right) {
     int n1 = mid - left + 1;
     int n2 = right - mid;
-    Record* L = new Record[n1];
-    Record* R = new Record[n2];
+    OrderRecord* L = new OrderRecord[n1];
+    OrderRecord* R = new OrderRecord[n2];
 
     for (int i = 0; i < n1; ++i) L[i] = arr[left + i];
     for (int j = 0; j < n2; ++j) R[j] = arr[mid + 1 + j];
@@ -22,7 +22,7 @@ static void merge(Record arr[], int left, int mid, int right) {
     delete[] R;
 }
 
-void mergeSort(Record arr[], int left, int right) {
+void mergeSort(OrderRecord arr[], int left, int right) {
     if (left < right) {
         int mid = left + (right - left) / 2;
         mergeSort(arr, left, mid);
@@ -31,6 +31,6 @@ void mergeSort(Record arr[], int left, int right) {
     }
 }
 
-bool compositeCompare(const Record& a, const Record& b) {
-    return a.applicationNumber < b.applicationNumber;
+bool compositeCompare(const OrderRecord& a, const OrderRecord& b) {
+    return a.cost < b.cost;
 }

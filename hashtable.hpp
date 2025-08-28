@@ -12,9 +12,10 @@ public:
     explicit HashTable(size_t initialSize, double maxLoad = 0.75);
     ~HashTable();
 
-    bool insert(const Record& rec);
-    bool remove(const Record& rec);
-    bool search(const std::string& fio, int applicationNumber,
+    bool insert(const DriverRecord& rec);
+    bool remove(const DriverRecord& rec);
+    // Search for a driver by license number.
+    bool search(const std::string& licenseNumber,
         size_t& out_index, int& steps) const;
 
     void clear();
@@ -25,7 +26,7 @@ public:
 private:
     struct Cell {
         bool   occupied;
-        Record data;
+        DriverRecord data;
         Cell();
     };
 
@@ -33,7 +34,7 @@ private:
     double m_maxLoadFactor, m_minLoadFactor;
     Cell* table;
 
-    std::string makeKey(const std::string& fio, int applicationNumber) const;
+    std::string makeKey(const std::string& licenseNumber) const;
     size_t      hashPrimary(const std::string& key) const;
     size_t      hashSecondary(size_t base, const std::string& key, size_t iteration) const;
     void        rehash(size_t newSize);

@@ -3,51 +3,31 @@
 
 #include <string>
 #include <vector>
+#include "record2.hpp"
 
-// Key used in the AVL tree.  It consists of a person's full name and
-// phone number.  Two keys are compared lexicographically by name and then
-// by phone number.
-struct PersonKey {
-    std::string fullName;
-    int         phoneNumber;
-
-    bool operator<(const PersonKey& other) const {
-        if (fullName != other.fullName)
-            return fullName < other.fullName;
-        return phoneNumber < other.phoneNumber;
-    }
-
-    bool operator==(const PersonKey& other) const {
-        return fullName == other.fullName && phoneNumber == other.phoneNumber;
-    }
-};
-
-// Object oriented AVL tree implementation.  All tree operations are
-// provided as member functions of the AVLTree class.
+// Object oriented AVL tree implementation storing taxi orders.
+// Orders are ordered by (licenseNumber, date).
 class AVLTree {
 public:
-    // Node of the tree.  Exposed so callers can inspect search results.
     struct Node {
-        PersonKey        key;        // composite key
-        int              height;     // height of the subtree
-        Node*            left;       // left child
-        Node*            right;      // right child
-        std::vector<int> lineNumbers;// lines in the input file
+        OrderRecord data;    // full record of the order
+        int    height;  // height of the subtree
+        Node*  left;    // left child
+        Node*  right;   // right child
 
-        Node(const PersonKey& k, int line);
+        explicit Node(const OrderRecord& r);
     };
 
     AVLTree();
     ~AVLTree();
 
-    void insert(const PersonKey& key, int lineNumber);
-    bool remove(const PersonKey& key);
-    Node* search(const PersonKey& key) const;
+    void insert(const OrderRecord& rec);
+    bool remove(const OrderRecord& rec);
+    Node* search(const std::string& licenseNumber, const std::string& date) const;
 
     std::vector<Node*> inorderNodes() const;
     std::vector<Node*> reverseInorderNodes() const;
 
-    bool removeLine(const PersonKey& key, int lineNumber);
     void printTree() const;
 
 private:
@@ -61,11 +41,11 @@ private:
     static Node* rotateLeft(Node* x);
     static Node* minNode(Node* node);
 
-    int   keyCompare(const PersonKey& a, const PersonKey& b) const;
+    int   keyCompare(const OrderRecord& a, const OrderRecord& b) const;
     Node* balanceNode(Node* node);
-    Node* insertNode(Node* node, const PersonKey& key, int lineNumber);
-    Node* removeNode(Node* node, const PersonKey& key, bool& removed);
-    Node* searchNode(Node* node, const PersonKey& key) const;
+    Node* insertNode(Node* node, const OrderRecord& rec);
+    Node* removeNode(Node* node, const OrderRecord& rec, bool& removed);
+    Node* searchNode(Node* node, const std::string& licenseNumber, const std::string& date) const;
     void  freeNode(Node* node);
     void  inorderTraversal(Node* node, std::vector<Node*>& result) const;
     void  reverseInorderTraversal(Node* node, std::vector<Node*>& result) const;

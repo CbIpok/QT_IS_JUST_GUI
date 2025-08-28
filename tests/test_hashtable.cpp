@@ -7,23 +7,23 @@
 
 TEST(HashTable, BasicOperations) {
     HashTable ht(4);
-    Record a{"Ivanov I I", 1, "Street", 12345, 10};
-    Record b{"Petrov P P", 2, "Ave", 67890, 20};
-    Record c{"Sidorov S S", 3, "Blvd", 11111, 30};
+    DriverRecord a{"TK-25-111111-2023", "Иванов Иван Иванович", "BMW", 10};
+    DriverRecord b{"TK-25-222222-2024", "Петров Петр Петрович", "Mercedes", 20};
+    DriverRecord c{"TK-25-333333-2022", "Сидоров Сергей Сергеевич", "Audi", 30};
 
     EXPECT_TRUE(ht.insert(a));
     EXPECT_TRUE(ht.insert(b));
     EXPECT_TRUE(ht.insert(c));
 
     size_t idx; int steps;
-    EXPECT_TRUE(ht.search(b.fio, b.applicationNumber, idx, steps));
+    EXPECT_TRUE(ht.search(b.licenseNumber, idx, steps));
     EXPECT_EQ(ht.getOriginalLine(idx), b.originalLine);
 
     EXPECT_TRUE(ht.remove(b));
-    EXPECT_FALSE(ht.search(b.fio, b.applicationNumber, idx, steps));
+    EXPECT_FALSE(ht.search(b.licenseNumber, idx, steps));
 
     ht.clear();
-    EXPECT_FALSE(ht.search(a.fio, a.applicationNumber, idx, steps));
+    EXPECT_FALSE(ht.search(a.licenseNumber, idx, steps));
 
     ht.insert(a);
     ht.saveToFile("ht_test.txt");
@@ -37,7 +37,7 @@ TEST(HashTable, AutomaticExpansion) {
     // start with minimal size to force growth
     HashTable small(2);
     for (int i = 0; i < 10; ++i) {
-        Record r{"Name" + std::to_string(i), i, "St", 100 + i, i};
+        DriverRecord r{"LIC" + std::to_string(i), "Name" + std::to_string(i), "Brand", i};
         EXPECT_TRUE(small.insert(r));
     }
 
@@ -53,5 +53,5 @@ TEST(HashTable, AutomaticExpansion) {
     EXPECT_GT(buckets, 2);
 
     size_t idx; int steps;
-    EXPECT_TRUE(small.search("Name9", 9, idx, steps));
+    EXPECT_TRUE(small.search("LIC9", idx, steps));
 }

@@ -1,17 +1,13 @@
 #include "avl_tree.h"
 #include <iostream>
 
-AVLTree::Node::Node(const PersonKey& k, int line)
-    : key(k), height(1), left(nullptr), right(nullptr) {
-    lineNumbers.push_back(line);
-}
+AVLTree::Node::Node(const OrderRecord& r)
+    : data(r), height(1), left(nullptr), right(nullptr) {}
 
 AVLTree::AVLTree() : root(nullptr) {}
-
 AVLTree::~AVLTree() { freeNode(root); }
 
 int AVLTree::height(Node* n) { return n ? n->height : 0; }
-
 int AVLTree::max(int a, int b) { return a > b ? a : b; }
 
 void AVLTree::updateHeight(Node* n) {
@@ -40,11 +36,11 @@ AVLTree::Node* AVLTree::rotateLeft(Node* x) {
     return y;
 }
 
-int AVLTree::keyCompare(const PersonKey& a, const PersonKey& b) const {
-    if (a.fullName < b.fullName) return -1;
-    if (a.fullName > b.fullName) return 1;
-    if (a.phoneNumber < b.phoneNumber) return -1;
-    if (a.phoneNumber > b.phoneNumber) return 1;
+int AVLTree::keyCompare(const OrderRecord& a, const OrderRecord& b) const {
+    if (a.licenseNumber < b.licenseNumber) return -1;
+    if (a.licenseNumber > b.licenseNumber) return 1;
+    if (a.date < b.date) return -1;
+    if (a.date > b.date) return 1;
     return 0;
 }
 
@@ -70,31 +66,29 @@ AVLTree::Node* AVLTree::minNode(Node* node) {
     return node;
 }
 
-AVLTree::Node* AVLTree::insertNode(Node* node, const PersonKey& key, int lineNumber) {
-    if (!node) return new Node(key, lineNumber);
-    int cmp = keyCompare(key, node->key);
+AVLTree::Node* AVLTree::insertNode(Node* node, const OrderRecord& rec) {
+    if (!node) return new Node(rec);
+    int cmp = keyCompare(rec, node->data);
     if (cmp < 0)
-        node->left = insertNode(node->left, key, lineNumber);
+        node->left = insertNode(node->left, rec);
     else if (cmp > 0)
-        node->right = insertNode(node->right, key, lineNumber);
-    else {
-        node->lineNumbers.push_back(lineNumber);
-        return node;
-    }
+        node->right = insertNode(node->right, rec);
+    else
+        return node; // duplicate
     return balanceNode(node);
 }
 
-void AVLTree::insert(const PersonKey& key, int lineNumber) {
-    root = insertNode(root, key, lineNumber);
+void AVLTree::insert(const OrderRecord& rec) {
+    root = insertNode(root, rec);
 }
 
-AVLTree::Node* AVLTree::removeNode(Node* node, const PersonKey& key, bool& removed) {
+AVLTree::Node* AVLTree::removeNode(Node* node, const OrderRecord& rec, bool& removed) {
     if (!node) return nullptr;
-    int cmp = keyCompare(key, node->key);
+    int cmp = keyCompare(rec, node->data);
     if (cmp < 0) {
-        node->left = removeNode(node->left, key, removed);
+        node->left = removeNode(node->left, rec, removed);
     } else if (cmp > 0) {
-        node->right = removeNode(node->right, key, removed);
+        node->right = removeNode(node->right, rec, removed);
     } else {
         removed = true;
         if (!node->left || !node->right) {
@@ -108,31 +102,32 @@ AVLTree::Node* AVLTree::removeNode(Node* node, const PersonKey& key, bool& remov
             delete temp;
         } else {
             Node* temp = minNode(node->right);
-            node->key = temp->key;
-            node->lineNumbers = temp->lineNumbers;
-            node->right = removeNode(node->right, temp->key, removed);
+            OrderRecord tempData = temp->data;
+            node->data = tempData;
+            node->right = removeNode(node->right, tempData, removed);
         }
     }
     if (!node) return node;
     return balanceNode(node);
 }
 
-bool AVLTree::remove(const PersonKey& key) {
+bool AVLTree::remove(const OrderRecord& rec) {
     bool removed = false;
-    root = removeNode(root, key, removed);
+    root = removeNode(root, rec, removed);
     return removed;
 }
 
-AVLTree::Node* AVLTree::searchNode(Node* node, const PersonKey& key) const {
+AVLTree::Node* AVLTree::searchNode(Node* node, const std::string& licenseNumber, const std::string& date) const {
     if (!node) return nullptr;
-    int cmp = keyCompare(key, node->key);
-    if (cmp < 0) return searchNode(node->left, key);
-    if (cmp > 0) return searchNode(node->right, key);
+    OrderRecord key{licenseNumber, "", 0, date, 0};
+    int cmp = keyCompare(key, node->data);
+    if (cmp < 0) return searchNode(node->left, licenseNumber, date);
+    if (cmp > 0) return searchNode(node->right, licenseNumber, date);
     return node;
 }
 
-AVLTree::Node* AVLTree::search(const PersonKey& key) const {
-    return searchNode(root, key);
+AVLTree::Node* AVLTree::search(const std::string& licenseNumber, const std::string& date) const {
+    return searchNode(root, licenseNumber, date);
 }
 
 void AVLTree::inorderTraversal(Node* node, std::vector<Node*>& result) const {
@@ -168,23 +163,6 @@ void AVLTree::freeNode(Node* node) {
     delete node;
 }
 
-bool AVLTree::removeLine(const PersonKey& key, int lineNumber) {
-    Node* node = search(key);
-    if (!node) return false;
-    int index = -1;
-    for (size_t i = 0; i < node->lineNumbers.size(); ++i) {
-        if (node->lineNumbers[i] == lineNumber) {
-            index = static_cast<int>(i);
-            break;
-        }
-    }
-    if (index == -1) return false;
-    node->lineNumbers.erase(node->lineNumbers.begin() + index);
-    if (node->lineNumbers.empty())
-        return remove(key);
-    return true;
-}
-
 void AVLTree::printTreeRecursive(Node* node, std::vector<const char*>& stems, char childType) const {
     if (!node) return;
     for (const char* s : stems)
@@ -192,15 +170,7 @@ void AVLTree::printTreeRecursive(Node* node, std::vector<const char*>& stems, ch
     std::cout << "--";
     if (childType == 'L') std::cout << "(L) ";
     else if (childType == 'R') std::cout << "(R) ";
-    std::cout << node->key.fullName << " " << node->key.phoneNumber;
-    if (!node->lineNumbers.empty()) {
-        std::cout << " [";
-        for (size_t i = 0; i < node->lineNumbers.size(); ++i) {
-            std::cout << node->lineNumbers[i];
-            if (i + 1 < node->lineNumbers.size()) std::cout << ",";
-        }
-        std::cout << "]";
-    }
+    std::cout << node->data.licenseNumber << " " << node->data.date;
     std::cout << "\n";
     Node* left = node->left;
     Node* right = node->right;
@@ -235,4 +205,3 @@ void AVLTree::printTree() const {
     std::vector<const char*> stems;
     printTreeRecursive(root, stems, '\0');
 }
-
