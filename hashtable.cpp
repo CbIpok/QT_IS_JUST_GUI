@@ -30,26 +30,18 @@ std::string HashTable::makeKey(const std::string& licenseNumber) const {
     return licenseNumber;
 }
 
-// -- primary hash with debug logging --
+// -- primary hash --
 size_t HashTable::hashPrimary(const std::string& key) const {
     static constexpr uint64_t MUL = 11400714819323198485ULL;
     static std::hash<std::string> hasher;
     uint64_t k = hasher(key);
     uint64_t h = k * MUL;
-    size_t idx = h % m_size;
-    std::cout << "[Hash] primary(\"" << key << "\") = " << idx << "\n";
-    return idx;
+    return h % m_size;
 }
 
-// -- secondary (linear) probing with debug logging --
-size_t HashTable::hashSecondary(size_t base, const std::string& key, size_t iteration) const {
-    size_t idx = (base + iteration) % m_size;
-    if (iteration > 0) {
-        std::cout << "[Hash] secondary(\"" << key
-            << "\", iter=" << iteration
-            << ") = " << idx << "\n";
-    }
-    return idx;
+// -- secondary (linear) probing --
+size_t HashTable::hashSecondary(size_t base, const std::string& /*key*/, size_t iteration) const {
+    return (base + iteration) % m_size;
 }
 
 void HashTable::rehash(size_t newSize) {
