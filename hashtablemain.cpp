@@ -70,21 +70,16 @@ int main3() {
                 if (++used > maxL && maxL > 0) break;
 
                 std::stringstream ss(line);
-                std::string fio, street, phoneStr, appStr;
+                std::string license, fio, brand;
+                std::getline(ss, license, ';');
                 std::getline(ss, fio, ';');
-                std::getline(ss, street, ';');
-                std::getline(ss, phoneStr, ';');
-                std::getline(ss, appStr);
-                trim(fio); trim(street);
-                trim(phoneStr); trim(appStr);
+                std::getline(ss, brand);
+                trim(license); trim(fio); trim(brand);
 
                 Record rec;
+                rec.licenseNumber = license;
                 rec.fio = fio;
-                rec.street = street;
-                try { rec.phoneNumber = std::stoll(phoneStr); }
-                catch (...) { rec.phoneNumber = 0; }
-                try { rec.applicationNumber = std::stoi(appStr); }
-                catch (...) { rec.applicationNumber = 0; }
+                rec.carBrand = brand;
                 rec.originalLine = used;
                 ht->insert(rec);
             }
@@ -94,36 +89,30 @@ int main3() {
         case 2: { // add
             if (!checkTbl()) break;
             Record rec;
-            std::cout << "Name: ";           std::getline(std::cin, rec.fio);
-            std::cout << "Street: ";         std::getline(std::cin, rec.street);
-            std::cout << "Phone #: ";        std::cin >> rec.phoneNumber;
-            std::cout << "Application #: ";  std::cin >> rec.applicationNumber;
+            std::cout << "License: ";        std::getline(std::cin, rec.licenseNumber);
+            std::cout << "Full name: ";      std::getline(std::cin, rec.fio);
+            std::cout << "Car brand: ";      std::getline(std::cin, rec.carBrand);
             rec.originalLine = -1;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             ht->insert(rec);
             break;
         }
         case 3: { // remove
             if (!checkTbl()) break;
             Record rec;
-            std::cout << "Name: ";           std::getline(std::cin, rec.fio);
-            std::cout << "Street: ";         std::getline(std::cin, rec.street);
-            std::cout << "Phone #: ";        std::cin >> rec.phoneNumber;
-            std::cout << "Application #: ";  std::cin >> rec.applicationNumber;
+            std::cout << "License: ";        std::getline(std::cin, rec.licenseNumber);
+            std::cout << "Full name: ";      std::getline(std::cin, rec.fio);
+            std::cout << "Car brand: ";      std::getline(std::cin, rec.carBrand);
             rec.originalLine = -1;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             if (ht->remove(rec)) std::cout << "Removed.\n";
             else                 std::cout << "Not found/mismatch.\n";
             break;
         }
         case 4: { // find
             if (!checkTbl()) break;
-            std::string fio; int app;
-            std::cout << "Name: "; std::getline(std::cin, fio);
-            std::cout << "Application #: "; std::cin >> app;
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::string license;
+            std::cout << "License: "; std::getline(std::cin, license);
             size_t idx; int steps = 0;
-            if (ht->search(fio, app, idx, steps))
+            if (ht->search(license, idx, steps))
                 std::cout << "Found at idx=" << idx
                 << ", line=" << ht->getOriginalLine(idx)
                 << " (" << steps << " probes)\n";

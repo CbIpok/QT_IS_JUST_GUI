@@ -47,15 +47,15 @@ static AVLNode* rotate_left(AVLNode* x) {
     return y;
 }
 
-static int key_compare(const PersonKey& a, const PersonKey& b) {
-    if (a.fullName < b.fullName) return -1;
-    if (a.fullName > b.fullName) return 1;
-    if (a.phoneNumber < b.phoneNumber) return -1;
-    if (a.phoneNumber > b.phoneNumber) return 1;
+static int key_compare(const OrderKey& a, const OrderKey& b) {
+    if (a.licenseNumber < b.licenseNumber) return -1;
+    if (a.licenseNumber > b.licenseNumber) return 1;
+    if (a.address < b.address) return -1;
+    if (a.address > b.address) return 1;
     return 0;
 }
 
-static AVLNode* create_node(const PersonKey& key, int lineNumber) {
+static AVLNode* create_node(const OrderKey& key, int lineNumber) {
     AVLNode* node = new AVLNode;
     node->key = key;
     node->height = 1;
@@ -96,7 +96,7 @@ static AVLNode* min_node(AVLNode* node) {
     return node;
 }
 
-static AVLNode* insert_node(AVLNode* node, const PersonKey& key, int lineNumber) {
+static AVLNode* insert_node(AVLNode* node, const OrderKey& key, int lineNumber) {
     if (!node) return create_node(key, lineNumber);
 
     int cmp = key_compare(key, node->key);
@@ -115,7 +115,7 @@ static AVLNode* insert_node(AVLNode* node, const PersonKey& key, int lineNumber)
     return balance_node(node);
 }
 
-static AVLNode* remove_node(AVLNode* node, const PersonKey& key, bool& removed) {
+static AVLNode* remove_node(AVLNode* node, const OrderKey& key, bool& removed) {
     if (!node) return 0;
 
     int cmp = key_compare(key, node->key);
@@ -148,7 +148,7 @@ static AVLNode* remove_node(AVLNode* node, const PersonKey& key, bool& removed) 
     return balance_node(node);
 }
 
-static AVLNode* search_node(AVLNode* node, const PersonKey& key) {
+static AVLNode* search_node(AVLNode* node, const OrderKey& key) {
     if (!node) return 0;
     int cmp = key_compare(key, node->key);
     if (cmp < 0) return search_node(node->left, key);
@@ -182,17 +182,17 @@ void avl_init(AVLTree* tree) {
     tree->root = 0;
 }
 
-void avl_insert(AVLTree* tree, const PersonKey& key, int lineNumber) {
+void avl_insert(AVLTree* tree, const OrderKey& key, int lineNumber) {
     tree->root = insert_node(tree->root, key, lineNumber);
 }
 
-bool avl_remove(AVLTree* tree, const PersonKey& key) {
+bool avl_remove(AVLTree* tree, const OrderKey& key) {
     bool removed = false;
     tree->root = remove_node(tree->root, key, removed);
     return removed;
 }
 
-AVLNode* avl_search(AVLTree* tree, const PersonKey& key) {
+AVLNode* avl_search(AVLTree* tree, const OrderKey& key) {
     return search_node(tree->root, key);
 }
 
@@ -213,7 +213,7 @@ void avl_free(AVLTree* tree) {
     tree->root = 0;
 }
 
-bool avl_remove_line(AVLTree* tree, const PersonKey& key, int lineNumber) {
+bool avl_remove_line(AVLTree* tree, const OrderKey& key, int lineNumber) {
     AVLNode* node = avl_search(tree, key);
     if (!node) {
         // Node with such key not found
@@ -268,7 +268,7 @@ static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems,
         std::cout << "(R) ";
     }
 
-    std::cout << node->key.fullName << " " << node->key.phoneNumber;
+    std::cout << node->key.licenseNumber << " " << node->key.address;
     if (!node->lineNumbers.empty()) {
         std::cout << " [";
         for (std::size_t i = 0; i < node->lineNumbers.size(); i++) {

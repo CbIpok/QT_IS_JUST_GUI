@@ -8,7 +8,7 @@
 
 Cell::Cell()
     : occupied(false),
-    data({ "", 0, "", 0LL, -1 })
+    data({ "", "", "", -1 })
 {}
 
 // ---------------- HashTable ----------------
@@ -55,8 +55,8 @@ HashTable::~HashTable() {
     delete[] table;
 }
 
-std::string HashTable::makeKey(const std::string& fio, int applicationNumber) const {
-    return fio + "#" + std::to_string(applicationNumber);
+std::string HashTable::makeKey(const std::string& licenseNumber) const {
+    return licenseNumber;
 }
 
 // -- primary hash with debug logging --
@@ -98,7 +98,7 @@ void HashTable::rehash(size_t newSize) {
 }
 
 bool HashTable::insert(const Record& rec) {
-    std::string key = makeKey(rec.fio, rec.applicationNumber);
+    std::string key = makeKey(rec.licenseNumber);
     size_t      base = hashPrimary(key);
 
     for (size_t i = 0; i < m_size; ++i) {
@@ -112,8 +112,7 @@ bool HashTable::insert(const Record& rec) {
             }
             return true;
         }
-        if (table[idx].data.fio == rec.fio &&
-            table[idx].data.applicationNumber == rec.applicationNumber)
+        if (table[idx].data.licenseNumber == rec.licenseNumber)
         {
             return false;
         }
@@ -122,17 +121,16 @@ bool HashTable::insert(const Record& rec) {
     return insert(rec);
 }
 
-bool HashTable::search(const std::string& fio, int applicationNumber,
+bool HashTable::search(const std::string& licenseNumber,
     size_t& out_index, int& steps) const {
-    std::string key = makeKey(fio, applicationNumber);
+    std::string key = makeKey(licenseNumber);
     size_t      base = hashPrimary(key);
 
     for (size_t i = 0; i < m_size; ++i) {
         steps = int(i + 1);
         size_t idx = hashSecondary(base, key, i);
         if (!table[idx].occupied) return false;
-        if (table[idx].data.fio == fio &&
-            table[idx].data.applicationNumber == applicationNumber)
+        if (table[idx].data.licenseNumber == licenseNumber)
         {
             out_index = idx;
             return true;
@@ -143,41 +141,26 @@ bool HashTable::search(const std::string& fio, int applicationNumber,
 
 bool HashTable::remove(const Record& rec) {
     size_t idx; int steps = 0;
-    if (!search(rec.fio, rec.applicationNumber, idx, steps))
+    if (!search(rec.licenseNumber, idx, steps))
         return false;
 
     const Record& found = table[idx].data;
-    if (found.street != rec.street ||
-        found.phoneNumber != rec.phoneNumber)
+    if (found.fio != rec.fio ||
+        found.carBrand != rec.carBrand)
     {
         return false;
     }
 
     table[idx].occupied = false;
     --m_count;
-    std::string key = makeKey(rec.fio, rec.applicationNumber);
-    size_t      base = hashPrimary(key);
-    size_t      prev = idx;
 
-    for (size_t i = steps; i < m_size; ++i) {
-        size_t curr = hashSecondary(base, key, i);
-        if (!table[curr].occupied) break;
-
-        const Record& r2 = table[curr].data;
-        size_t home = hashPrimary(makeKey(r2.fio, r2.applicationNumber));
-
-        bool inRange;
-        if (home <= curr)
-            inRange = (home <= prev && prev < curr);
-        else
-            inRange = (home <= prev || prev < curr);
-
-        if (!inRange) {
-            table[prev].data = table[curr].data;
-            table[prev].occupied = true;
-            table[curr].occupied = false;
-            prev = curr;
-        }
+    size_t curr = (idx + 1) % m_size;
+    while (table[curr].occupied) {
+        Record tmp = table[curr].data;
+        table[curr].occupied = false;
+        --m_count;
+        insert(tmp);
+        curr = (curr + 1) % m_size;
     }
 
     if (m_size > m_initialSize &&
@@ -195,17 +178,16 @@ void HashTable::clear() {
 }
 
 void HashTable::print(std::ostream& out) const {
-    out << "Idx | Status   | Record (name;app;street;phone;line)\n";
+    out << "Idx | Status   | Record (license;fio;brand;line)\n";
     for (size_t i = 0; i < m_size; ++i) {
         out << i << "   | "
             << (table[i].occupied ? "OCCUPIED" : "FREE    ");
         if (table[i].occupied) {
             const Record& r = table[i].data;
             out << " | "
+                << r.licenseNumber << ";"
                 << r.fio << ";"
-                << r.applicationNumber << ";"
-                << r.street << ";"
-                << r.phoneNumber << ";"
+                << r.carBrand << ";"
                 << r.originalLine;
         }
         out << "\n";
