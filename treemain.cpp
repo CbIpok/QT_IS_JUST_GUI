@@ -97,7 +97,8 @@ static void print_tree_inorder(const AVLTree& tree) {
     std::vector<AVLNode*> nodes = avl_inorder_nodes(&tree);
     for (std::size_t i = 0; i < nodes.size(); i++) {
         AVLNode* node = nodes[i];
-        std::cout << node->key.licenseNumber << " " << node->key.address << " Lines:";
+        std::cout << node->key.licenseNumber << " " << node->key.address << " "
+                  << node->key.cost << " " << node->key.date << " Lines:";
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             std::cout << " " << node->lineNumbers[j];
         }
@@ -109,7 +110,8 @@ static void print_tree_reverse_inorder(const AVLTree& tree) {
     std::vector<AVLNode*> nodes = avl_reverse_inorder_nodes(&tree);
     for (std::size_t i = 0; i < nodes.size(); i++) {
         AVLNode* node = nodes[i];
-        std::cout << node->key.licenseNumber << " " << node->key.address << " Lines:";
+        std::cout << node->key.licenseNumber << " " << node->key.address << " "
+                  << node->key.cost << " " << node->key.date << " Lines:";
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             std::cout << " " << node->lineNumbers[j];
         }
@@ -126,7 +128,8 @@ static void save_tree_reverse_inorder(const AVLTree& tree, const std::string& fi
     std::vector<AVLNode*> nodes = avl_reverse_inorder_nodes(&tree);
     for (std::size_t i = 0; i < nodes.size(); i++) {
         AVLNode* node = nodes[i];
-        out << node->key.licenseNumber << " " << node->key.address;
+        out << node->key.licenseNumber << " " << node->key.address << " "
+            << node->key.cost << " " << node->key.date;
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             out << " " << node->lineNumbers[j];
         }
@@ -154,7 +157,9 @@ static void input_and_search(AVLTree& tree) {
 
     AVLNode* node = avl_search(&tree, key);
     if (node) {
-        std::cout << "Element found: " << node->key.licenseNumber << " " << node->key.address << " Lines:";
+        std::cout << "Element found: " << node->key.licenseNumber << " "
+                  << node->key.address << " " << node->key.cost << " "
+                  << node->key.date << " Lines:";
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             std::cout << " " << node->lineNumbers[j];
         }
