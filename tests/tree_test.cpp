@@ -3,7 +3,7 @@
 
 TEST(AVLTreeTest, InsertAndSearch) {
     AVLTree tree; avl_init(&tree);
-    OrderKey k{"TK-25-111111-2023", "Ul. Lesnaya"};
+    OrderRecord k{"TK-25-111111-2023", "Ul. Lesnaya"};
     avl_insert(&tree, k, 10);
     AVLNode* node = avl_search(&tree, k);
     ASSERT_NE(node, nullptr);
@@ -14,8 +14,8 @@ TEST(AVLTreeTest, InsertAndSearch) {
 
 TEST(AVLTreeTest, Remove) {
     AVLTree tree; avl_init(&tree);
-    OrderKey k1{"TK-25-111111-2023", "Ul. Lesnaya"};
-    OrderKey k2{"TK-25-222222-2024", "Ul. Lenina"};
+    OrderRecord k1{"TK-25-111111-2023", "Ul. Lesnaya"};
+    OrderRecord k2{"TK-25-222222-2024", "Ul. Lenina"};
     avl_insert(&tree, k1, 1);
     avl_insert(&tree, k2, 2);
     EXPECT_TRUE(avl_remove(&tree, k1));
@@ -26,7 +26,7 @@ TEST(AVLTreeTest, Remove) {
 
 TEST(AVLTreeTest, RemoveLine) {
     AVLTree tree; avl_init(&tree);
-    OrderKey k{"TK-25-111111-2023", "Ul. Lesnaya"};
+    OrderRecord k{"TK-25-111111-2023", "Ul. Lesnaya"};
     avl_insert(&tree, k, 1);
     avl_insert(&tree, k, 2);
     EXPECT_TRUE(avl_remove_line(&tree, k, 1));

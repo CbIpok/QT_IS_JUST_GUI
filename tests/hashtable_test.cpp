@@ -4,8 +4,8 @@
 
 TEST(HashTableTest, InsertSearchRemove) {
     HashTable table(3);
-    Record r1{"TK-25-111111-2023", "Novikova Daria Sergeevna", "BMW", 10};
-    Record r2{"TK-25-222222-2024", "Melnikov Igor Pavlovich", "Mercedes", 20};
+    DriverRecord r1{"TK-25-111111-2023", "Novikova Daria Sergeevna", "BMW", 10};
+    DriverRecord r2{"TK-25-222222-2024", "Melnikov Igor Pavlovich", "Mercedes", 20};
     EXPECT_TRUE(table.insert(r1));
     EXPECT_TRUE(table.insert(r2));
     size_t idx; int steps;
@@ -20,11 +20,11 @@ TEST(HashTableTest, InsertSearchRemove) {
 
 TEST(HashTableTest, InsertDuplicateAndRehash) {
     HashTable table(3);
-    Record r{"TK-25-111111-2023", "Novikova Daria Sergeevna", "BMW", 0};
+    DriverRecord r{"TK-25-111111-2023", "Novikova Daria Sergeevna", "BMW", 0};
     EXPECT_TRUE(table.insert(r));
     EXPECT_FALSE(table.insert(r));
 
-    std::vector<Record> records;
+    std::vector<DriverRecord> records;
     for (int i = 0; i < 10; ++i) {
         records.push_back({"TK-25-" + std::to_string(100000 + i),
                           "Name" + std::to_string(i),

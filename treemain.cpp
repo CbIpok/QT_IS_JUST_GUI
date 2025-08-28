@@ -4,8 +4,8 @@
 #include <vector>
 #include "avl_tree.h"
 
-// Parse a line "License Address" into OrderKey
-static bool parse_line(const std::string& line, OrderKey& key) {
+// Parse a line "License Address" into OrderRecord
+static bool parse_line(const std::string& line, OrderRecord& key) {
     std::size_t pos = line.rfind(' ');
     if (pos == std::string::npos) return false;
 
@@ -19,9 +19,9 @@ static bool parse_line(const std::string& line, OrderKey& key) {
     return true;
 }
 
-// Reads a single line from console and parses it into OrderKey
+// Reads a single line from console and parses it into OrderRecord
 // Returns true if successful, false otherwise. Prints error messages if fails.
-static bool read_person_key_from_console(OrderKey& key) {
+static bool read_person_key_from_console(OrderRecord& key) {
     std::cin.ignore(10000, '\n');
     std::string line;
     if (!std::getline(std::cin, line)) {
@@ -37,9 +37,9 @@ static bool read_person_key_from_console(OrderKey& key) {
     return true;
 }
 
-// Reads a line from console and parses it into OrderKey and lineNumber.
+// Reads a line from console and parses it into OrderRecord and lineNumber.
 // Format: "License Address lineNumber"
-static bool read_person_key_and_line_from_console(OrderKey& key, int& lineNumber) {
+static bool read_person_key_and_line_from_console(OrderRecord& key, int& lineNumber) {
     std::cin.ignore(10000, '\n');
     std::string line;
     if (!std::getline(std::cin, line)) {
@@ -83,7 +83,7 @@ static void load_from_input_file(AVLTree& tree) {
     while (std::getline(in, line)) {
         lineNumber++;
         if (line.empty()) continue;
-        OrderKey key;
+        OrderRecord key;
         if (parse_line(line, key)) {
             avl_insert(&tree, key, lineNumber);
         }
@@ -136,7 +136,7 @@ static void save_tree_reverse_inorder(const AVLTree& tree, const std::string& fi
 
 static void input_and_remove(AVLTree& tree) {
     std::cout << "Enter License and Address to remove:\n";
-    OrderKey key;
+    OrderRecord key;
     if (!read_person_key_from_console(key)) return;
 
     if (avl_remove(&tree, key)) {
@@ -149,7 +149,7 @@ static void input_and_remove(AVLTree& tree) {
 
 static void input_and_search(AVLTree& tree) {
     std::cout << "Enter License and Address to search:\n";
-    OrderKey key;
+    OrderRecord key;
     if (!read_person_key_from_console(key)) return;
 
     AVLNode* node = avl_search(&tree, key);
@@ -167,7 +167,7 @@ static void input_and_search(AVLTree& tree) {
 
 static void input_and_insert_single(AVLTree& tree) {
     std::cout << "Enter License, Address and LineNumber to insert:\n";
-    OrderKey key;
+    OrderRecord key;
     int ln;
     if (!read_person_key_and_line_from_console(key, ln)) return;
 
@@ -177,7 +177,7 @@ static void input_and_insert_single(AVLTree& tree) {
 
 static void input_and_remove_line(AVLTree& tree) {
     std::cout << "Enter License, Address and line number to remove:\n";
-    OrderKey key;
+    OrderRecord key;
     int ln;
     if (!read_person_key_and_line_from_console(key, ln)) return;
 

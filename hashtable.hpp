@@ -3,11 +3,11 @@
 
 #include <string>
 #include <ostream>
-#include "record3.hpp"
+#include "driver_record.hpp"
 
 struct Cell {
     bool     occupied;
-    Record   data;
+    DriverRecord   data;
     Cell();
 };
 
@@ -20,8 +20,8 @@ public:
     HashTable& operator=(HashTable&& other) noexcept;
     ~HashTable();
 
-    bool insert(const Record& rec);
-    bool remove(const Record& rec);
+    bool insert(const DriverRecord& rec);
+    bool remove(const DriverRecord& rec);
     bool search(const std::string& licenseNumber,
         size_t& out_index, int& steps) const;
 

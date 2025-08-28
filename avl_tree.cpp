@@ -47,7 +47,7 @@ static AVLNode* rotate_left(AVLNode* x) {
     return y;
 }
 
-static int key_compare(const OrderKey& a, const OrderKey& b) {
+static int key_compare(const OrderRecord& a, const OrderRecord& b) {
     if (a.licenseNumber < b.licenseNumber) return -1;
     if (a.licenseNumber > b.licenseNumber) return 1;
     if (a.address < b.address) return -1;
@@ -55,7 +55,7 @@ static int key_compare(const OrderKey& a, const OrderKey& b) {
     return 0;
 }
 
-static AVLNode* create_node(const OrderKey& key, int lineNumber) {
+static AVLNode* create_node(const OrderRecord& key, int lineNumber) {
     AVLNode* node = new AVLNode;
     node->key = key;
     node->height = 1;
@@ -96,7 +96,7 @@ static AVLNode* min_node(AVLNode* node) {
     return node;
 }
 
-static AVLNode* insert_node(AVLNode* node, const OrderKey& key, int lineNumber) {
+static AVLNode* insert_node(AVLNode* node, const OrderRecord& key, int lineNumber) {
     if (!node) return create_node(key, lineNumber);
 
     int cmp = key_compare(key, node->key);
@@ -115,7 +115,7 @@ static AVLNode* insert_node(AVLNode* node, const OrderKey& key, int lineNumber) 
     return balance_node(node);
 }
 
-static AVLNode* remove_node(AVLNode* node, const OrderKey& key, bool& removed) {
+static AVLNode* remove_node(AVLNode* node, const OrderRecord& key, bool& removed) {
     if (!node) return 0;
 
     int cmp = key_compare(key, node->key);
@@ -148,7 +148,7 @@ static AVLNode* remove_node(AVLNode* node, const OrderKey& key, bool& removed) {
     return balance_node(node);
 }
 
-static AVLNode* search_node(AVLNode* node, const OrderKey& key) {
+static AVLNode* search_node(AVLNode* node, const OrderRecord& key) {
     if (!node) return 0;
     int cmp = key_compare(key, node->key);
     if (cmp < 0) return search_node(node->left, key);
@@ -182,17 +182,17 @@ void avl_init(AVLTree* tree) {
     tree->root = 0;
 }
 
-void avl_insert(AVLTree* tree, const OrderKey& key, int lineNumber) {
+void avl_insert(AVLTree* tree, const OrderRecord& key, int lineNumber) {
     tree->root = insert_node(tree->root, key, lineNumber);
 }
 
-bool avl_remove(AVLTree* tree, const OrderKey& key) {
+bool avl_remove(AVLTree* tree, const OrderRecord& key) {
     bool removed = false;
     tree->root = remove_node(tree->root, key, removed);
     return removed;
 }
 
-AVLNode* avl_search(AVLTree* tree, const OrderKey& key) {
+AVLNode* avl_search(AVLTree* tree, const OrderRecord& key) {
     return search_node(tree->root, key);
 }
 
@@ -213,7 +213,7 @@ void avl_free(AVLTree* tree) {
     tree->root = 0;
 }
 
-bool avl_remove_line(AVLTree* tree, const OrderKey& key, int lineNumber) {
+bool avl_remove_line(AVLTree* tree, const OrderRecord& key, int lineNumber) {
     AVLNode* node = avl_search(tree, key);
     if (!node) {
         // Node with such key not found

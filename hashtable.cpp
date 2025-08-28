@@ -97,7 +97,7 @@ void HashTable::rehash(size_t newSize) {
     delete[] oldTable;
 }
 
-bool HashTable::insert(const Record& rec) {
+bool HashTable::insert(const DriverRecord& rec) {
     std::string key = makeKey(rec.licenseNumber);
     size_t      base = hashPrimary(key);
 
@@ -139,12 +139,12 @@ bool HashTable::search(const std::string& licenseNumber,
     return false;
 }
 
-bool HashTable::remove(const Record& rec) {
+bool HashTable::remove(const DriverRecord& rec) {
     size_t idx; int steps = 0;
     if (!search(rec.licenseNumber, idx, steps))
         return false;
 
-    const Record& found = table[idx].data;
+    const DriverRecord& found = table[idx].data;
     if (found.fio != rec.fio ||
         found.carBrand != rec.carBrand)
     {
@@ -156,7 +156,7 @@ bool HashTable::remove(const Record& rec) {
 
     size_t curr = (idx + 1) % m_size;
     while (table[curr].occupied) {
-        Record tmp = table[curr].data;
+        DriverRecord tmp = table[curr].data;
         table[curr].occupied = false;
         --m_count;
         insert(tmp);
@@ -183,7 +183,7 @@ void HashTable::print(std::ostream& out) const {
         out << i << "   | "
             << (table[i].occupied ? "OCCUPIED" : "FREE    ");
         if (table[i].occupied) {
-            const Record& r = table[i].data;
+            const DriverRecord& r = table[i].data;
             out << " | "
                 << r.licenseNumber << ";"
                 << r.fio << ";"

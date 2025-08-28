@@ -76,7 +76,7 @@ int main3() {
                 std::getline(ss, brand);
                 trim(license); trim(fio); trim(brand);
 
-                Record rec;
+                DriverRecord rec;
                 rec.licenseNumber = license;
                 rec.fio = fio;
                 rec.carBrand = brand;
@@ -88,7 +88,7 @@ int main3() {
         }
         case 2: { // add
             if (!checkTbl()) break;
-            Record rec;
+            DriverRecord rec;
             std::cout << "License: ";        std::getline(std::cin, rec.licenseNumber);
             std::cout << "Full name: ";      std::getline(std::cin, rec.fio);
             std::cout << "Car brand: ";      std::getline(std::cin, rec.carBrand);
@@ -98,7 +98,7 @@ int main3() {
         }
         case 3: { // remove
             if (!checkTbl()) break;
-            Record rec;
+            DriverRecord rec;
             std::cout << "License: ";        std::getline(std::cin, rec.licenseNumber);
             std::cout << "Full name: ";      std::getline(std::cin, rec.fio);
             std::cout << "Car brand: ";      std::getline(std::cin, rec.carBrand);
