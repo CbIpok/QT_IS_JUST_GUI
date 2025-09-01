@@ -4,29 +4,24 @@
 #include <vector>
 #include "avl_tree.h"
 
-// Parse a line "FullName PhoneNumber" into PersonKey
-static bool parse_line(const std::string& line, PersonKey& key) {
+// Parse a line "License Address" into OrderRecord
+static bool parse_line(const std::string& line, OrderRecord& key) {
     std::size_t pos = line.rfind(' ');
     if (pos == std::string::npos) return false;
 
-    std::string namePart = line.substr(0, pos);
-    std::string phonePart = line.substr(pos + 1);
+    std::string licensePart = line.substr(0, pos);
+    std::string addressPart = line.substr(pos + 1);
 
-    if (namePart.empty()) return false;
+    if (licensePart.empty() || addressPart.empty()) return false;
 
-    try {
-        key.phoneNumber = std::stoi(phonePart);
-    }
-    catch (...) {
-        return false;
-    }
-    key.fullName = namePart;
+    key.licenseNumber = licensePart;
+    key.address = addressPart;
     return true;
 }
 
-// Reads a single line from console and parses it into PersonKey
+// Reads a single line from console and parses it into OrderRecord
 // Returns true if successful, false otherwise. Prints error messages if fails.
-static bool read_person_key_from_console(PersonKey& key) {
+static bool read_person_key_from_console(OrderRecord& key) {
     std::cin.ignore(10000, '\n');
     std::string line;
     if (!std::getline(std::cin, line)) {
@@ -42,9 +37,9 @@ static bool read_person_key_from_console(PersonKey& key) {
     return true;
 }
 
-// Reads a line from console and parses it into PersonKey and lineNumber.
-// Format: "FullName PhoneNumber lineNumber"
-static bool read_person_key_and_line_from_console(PersonKey& key, int& lineNumber) {
+// Reads a line from console and parses it into OrderRecord and lineNumber.
+// Format: "License Address lineNumber"
+static bool read_person_key_and_line_from_console(OrderRecord& key, int& lineNumber) {
     std::cin.ignore(10000, '\n');
     std::string line;
     if (!std::getline(std::cin, line)) {
@@ -88,7 +83,7 @@ static void load_from_input_file(AVLTree& tree) {
     while (std::getline(in, line)) {
         lineNumber++;
         if (line.empty()) continue;
-        PersonKey key;
+        OrderRecord key;
         if (parse_line(line, key)) {
             avl_insert(&tree, key, lineNumber);
         }
@@ -102,7 +97,8 @@ static void print_tree_inorder(const AVLTree& tree) {
     std::vector<AVLNode*> nodes = avl_inorder_nodes(&tree);
     for (std::size_t i = 0; i < nodes.size(); i++) {
         AVLNode* node = nodes[i];
-        std::cout << node->key.fullName << " " << node->key.phoneNumber << " Lines:";
+        std::cout << node->key.licenseNumber << " " << node->key.address << " "
+                  << node->key.cost << " " << node->key.date << " Lines:";
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             std::cout << " " << node->lineNumbers[j];
         }
@@ -114,7 +110,8 @@ static void print_tree_reverse_inorder(const AVLTree& tree) {
     std::vector<AVLNode*> nodes = avl_reverse_inorder_nodes(&tree);
     for (std::size_t i = 0; i < nodes.size(); i++) {
         AVLNode* node = nodes[i];
-        std::cout << node->key.fullName << " " << node->key.phoneNumber << " Lines:";
+        std::cout << node->key.licenseNumber << " " << node->key.address << " "
+                  << node->key.cost << " " << node->key.date << " Lines:";
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             std::cout << " " << node->lineNumbers[j];
         }
@@ -131,7 +128,8 @@ static void save_tree_reverse_inorder(const AVLTree& tree, const std::string& fi
     std::vector<AVLNode*> nodes = avl_reverse_inorder_nodes(&tree);
     for (std::size_t i = 0; i < nodes.size(); i++) {
         AVLNode* node = nodes[i];
-        out << node->key.fullName << " " << node->key.phoneNumber;
+        out << node->key.licenseNumber << " " << node->key.address << " "
+            << node->key.cost << " " << node->key.date;
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             out << " " << node->lineNumbers[j];
         }
@@ -140,8 +138,8 @@ static void save_tree_reverse_inorder(const AVLTree& tree, const std::string& fi
 }
 
 static void input_and_remove(AVLTree& tree) {
-    std::cout << "Enter FullName and PhoneNumber to remove:\n";
-    PersonKey key;
+    std::cout << "Enter License and Address to remove:\n";
+    OrderRecord key;
     if (!read_person_key_from_console(key)) return;
 
     if (avl_remove(&tree, key)) {
@@ -153,13 +151,15 @@ static void input_and_remove(AVLTree& tree) {
 }
 
 static void input_and_search(AVLTree& tree) {
-    std::cout << "Enter FullName and PhoneNumber to search:\n";
-    PersonKey key;
+    std::cout << "Enter License and Address to search:\n";
+    OrderRecord key;
     if (!read_person_key_from_console(key)) return;
 
     AVLNode* node = avl_search(&tree, key);
     if (node) {
-        std::cout << "Element found: " << node->key.fullName << " " << node->key.phoneNumber << " Lines:";
+        std::cout << "Element found: " << node->key.licenseNumber << " "
+                  << node->key.address << " " << node->key.cost << " "
+                  << node->key.date << " Lines:";
         for (std::size_t j = 0; j < node->lineNumbers.size(); j++) {
             std::cout << " " << node->lineNumbers[j];
         }
@@ -171,8 +171,8 @@ static void input_and_search(AVLTree& tree) {
 }
 
 static void input_and_insert_single(AVLTree& tree) {
-    std::cout << "Enter FullName, PhoneNumber and LineNumber to insert:\n";
-    PersonKey key;
+    std::cout << "Enter License, Address and LineNumber to insert:\n";
+    OrderRecord key;
     int ln;
     if (!read_person_key_and_line_from_console(key, ln)) return;
 
@@ -181,8 +181,8 @@ static void input_and_insert_single(AVLTree& tree) {
 }
 
 static void input_and_remove_line(AVLTree& tree) {
-    std::cout << "Enter FullName, PhoneNumber and line number to remove:\n";
-    PersonKey key;
+    std::cout << "Enter License, Address and line number to remove:\n";
+    OrderRecord key;
     int ln;
     if (!read_person_key_and_line_from_console(key, ln)) return;
 

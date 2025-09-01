@@ -59,7 +59,10 @@
     <ClInclude Include="record2.hpp">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
-    <ClInclude Include="record3.hpp">
+    <ClInclude Include="driver_record.hpp">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
+    <ClInclude Include="order_record.hpp">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
     <ClInclude Include="test4.hpp">
