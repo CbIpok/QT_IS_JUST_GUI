@@ -139,6 +139,15 @@ bool HashTable::search(const std::string& licenseNumber,
     return false;
 }
 
+bool HashTable::getByLicense(const std::string& licenseNumber, DriverRecord& out) const {
+    size_t idx; int steps = 0;
+    if (search(licenseNumber, idx, steps)) {
+        out = table[idx].data;
+        return true;
+    }
+    return false;
+}
+
 bool HashTable::remove(const DriverRecord& rec) {
     size_t idx; int steps = 0;
     if (!search(rec.licenseNumber, idx, steps))

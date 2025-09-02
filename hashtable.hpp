@@ -25,6 +25,8 @@ public:
     bool search(const std::string& licenseNumber,
         size_t& out_index, int& steps) const;
 
+    bool getByLicense(const std::string& licenseNumber, DriverRecord& out) const;
+
     void clear();
     void print(std::ostream& out) const;
     void saveToFile(const std::string& filename) const;
