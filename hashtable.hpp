@@ -25,6 +25,9 @@ public:
     bool search(const std::string& licenseNumber,
         size_t& out_index, int& steps) const;
 
+    // Returns pointer to record by license number or nullptr if not found
+    const DriverRecord* find(const std::string& licenseNumber) const;
+
     void clear();
     void print(std::ostream& out) const;
     void saveToFile(const std::string& filename) const;

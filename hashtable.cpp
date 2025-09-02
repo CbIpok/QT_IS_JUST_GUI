@@ -204,3 +204,11 @@ int HashTable::getOriginalLine(size_t index) const {
         return table[index].data.originalLine;
     return -1;
 }
+
+const DriverRecord* HashTable::find(const std::string& licenseNumber) const {
+    size_t idx; int steps = 0;
+    if (search(licenseNumber, idx, steps)) {
+        return &table[idx].data;
+    }
+    return nullptr;
+}
