@@ -36,10 +36,16 @@
     <ClCompile Include="avl_tree.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="report.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
     <ClCompile Include="tests\doubly_linked_list_test.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="tests\hashtable_test.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\report_test.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="tests\tree_test.cpp">
@@ -63,6 +69,9 @@
       <Filter>Исходные файлы</Filter>
     </ClInclude>
     <ClInclude Include="order_record.hpp">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
+    <ClInclude Include="report.hpp">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
     <ClInclude Include="test4.hpp">
