@@ -137,11 +137,15 @@
     <ClCompile Include="doublelistmain.cpp" />
     <ClCompile Include="DoublyLinkedList.cpp" />
     <ClCompile Include="hashtable.cpp" />
+    <ClCompile Include="hashtable_idx.cpp" />
+    <ClCompile Include="avl_tree_idx.cpp" />
+    <ClCompile Include="integrator.cpp" />
     <ClCompile Include="KursAch.cpp" />
     <ClCompile Include="treemain.cpp" />
     <ClCompile Include="tests\doubly_linked_list_test.cpp" />
     <ClCompile Include="tests\hashtable_test.cpp" />
     <ClCompile Include="tests\tree_test.cpp" />
+    <ClCompile Include="tests\integrator_test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="avl_tree.h" />
@@ -149,6 +153,10 @@
     <ClInclude Include="hashtable.hpp" />
     <ClInclude Include="driver_record.hpp" />
     <ClInclude Include="order_record.hpp" />
+    <ClInclude Include="record_store.hpp" />
+    <ClInclude Include="hashtable_idx.hpp" />
+    <ClInclude Include="avl_tree_idx.hpp" />
+    <ClInclude Include="integrator.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
