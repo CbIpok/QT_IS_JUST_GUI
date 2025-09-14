@@ -1,12 +1,13 @@
 #include "avl_tree.h"
 #include <iostream>
 
-AVLTree::Node::Node(const PersonKey& k, int line)
-    : key(k), height(1), left(nullptr), right(nullptr) {
+AVLTree::Node::Node(int kIdx, int line)
+    : keyIndex(kIdx), height(1), left(nullptr), right(nullptr) {
     lineNumbers.push_back(line);
 }
 
-AVLTree::AVLTree() : root(nullptr) {}
+AVLTree::AVLTree(DoublyLinkedArray<PersonKey>& storage)
+    : root(nullptr), m_storage(storage) {}
 
 AVLTree::~AVLTree() { freeNode(root); }
 
@@ -19,6 +20,10 @@ void AVLTree::updateHeight(Node* n) {
 }
 
 int AVLTree::getBalance(Node* n) { return n ? height(n->left) - height(n->right) : 0; }
+
+const PersonKey& AVLTree::key(Node* n) const {
+    return m_storage.at(n->keyIndex)->value;
+}
 
 AVLTree::Node* AVLTree::rotateRight(Node* y) {
     Node* x = y->left;
@@ -70,13 +75,16 @@ AVLTree::Node* AVLTree::minNode(Node* node) {
     return node;
 }
 
-AVLTree::Node* AVLTree::insertNode(Node* node, const PersonKey& key, int lineNumber) {
-    if (!node) return new Node(key, lineNumber);
-    int cmp = keyCompare(key, node->key);
+AVLTree::Node* AVLTree::insertNode(Node* node, const PersonKey& keyVal, int lineNumber) {
+    if (!node) {
+        int idx = m_storage.push_back(keyVal);
+        return new Node(idx, lineNumber);
+    }
+    int cmp = keyCompare(keyVal, key(node));
     if (cmp < 0)
-        node->left = insertNode(node->left, key, lineNumber);
+        node->left = insertNode(node->left, keyVal, lineNumber);
     else if (cmp > 0)
-        node->right = insertNode(node->right, key, lineNumber);
+        node->right = insertNode(node->right, keyVal, lineNumber);
     else {
         node->lineNumbers.push_back(lineNumber);
         return node;
@@ -84,55 +92,62 @@ AVLTree::Node* AVLTree::insertNode(Node* node, const PersonKey& key, int lineNum
     return balanceNode(node);
 }
 
-void AVLTree::insert(const PersonKey& key, int lineNumber) {
-    root = insertNode(root, key, lineNumber);
+void AVLTree::insert(const PersonKey& keyVal, int lineNumber) {
+    root = insertNode(root, keyVal, lineNumber);
 }
 
-AVLTree::Node* AVLTree::removeNode(Node* node, const PersonKey& key, bool& removed) {
+AVLTree::Node* AVLTree::removeNode(Node* node, const PersonKey& keyVal, bool& removed) {
     if (!node) return nullptr;
-    int cmp = keyCompare(key, node->key);
+    int cmp = keyCompare(keyVal, key(node));
     if (cmp < 0) {
-        node->left = removeNode(node->left, key, removed);
+        node->left = removeNode(node->left, keyVal, removed);
     } else if (cmp > 0) {
-        node->right = removeNode(node->right, key, removed);
+        node->right = removeNode(node->right, keyVal, removed);
     } else {
         removed = true;
         if (!node->left || !node->right) {
             Node* temp = node->left ? node->left : node->right;
+            m_storage.remove(node->keyIndex);
             if (!temp) {
-                temp = node;
-                node = nullptr;
+                delete node;
+                return nullptr;
             } else {
                 *node = *temp;
+                delete temp;
             }
-            delete temp;
         } else {
             Node* temp = minNode(node->right);
-            node->key = temp->key;
+            PersonKey tempKey = key(temp);
             node->lineNumbers = temp->lineNumbers;
-            node->right = removeNode(node->right, temp->key, removed);
+            m_storage.at(node->keyIndex)->value = tempKey;
+            bool dummy = false;
+            node->right = removeNode(node->right, tempKey, dummy);
         }
     }
     if (!node) return node;
     return balanceNode(node);
 }
 
-bool AVLTree::remove(const PersonKey& key) {
+bool AVLTree::remove(const PersonKey& keyVal) {
     bool removed = false;
-    root = removeNode(root, key, removed);
+    root = removeNode(root, keyVal, removed);
     return removed;
 }
 
-AVLTree::Node* AVLTree::searchNode(Node* node, const PersonKey& key) const {
+AVLTree::Node* AVLTree::searchNode(Node* node, const PersonKey& keyVal) const {
     if (!node) return nullptr;
-    int cmp = keyCompare(key, node->key);
-    if (cmp < 0) return searchNode(node->left, key);
-    if (cmp > 0) return searchNode(node->right, key);
+    int cmp = keyCompare(keyVal, key(node));
+    if (cmp < 0) return searchNode(node->left, keyVal);
+    if (cmp > 0) return searchNode(node->right, keyVal);
     return node;
 }
 
-AVLTree::Node* AVLTree::search(const PersonKey& key) const {
-    return searchNode(root, key);
+AVLTree::Node* AVLTree::search(const PersonKey& keyVal) const {
+    return searchNode(root, keyVal);
+}
+
+const PersonKey& AVLTree::getKey(const Node* n) const {
+    return m_storage.at(n->keyIndex)->value;
 }
 
 void AVLTree::inorderTraversal(Node* node, std::vector<Node*>& result) const {
@@ -192,7 +207,8 @@ void AVLTree::printTreeRecursive(Node* node, std::vector<const char*>& stems, ch
     std::cout << "--";
     if (childType == 'L') std::cout << "(L) ";
     else if (childType == 'R') std::cout << "(R) ";
-    std::cout << node->key.fullName << " " << node->key.phoneNumber;
+    const PersonKey& k = key(node);
+    std::cout << k.fullName << " " << k.phoneNumber;
     if (!node->lineNumbers.empty()) {
         std::cout << " [";
         for (size_t i = 0; i < node->lineNumbers.size(); ++i) {

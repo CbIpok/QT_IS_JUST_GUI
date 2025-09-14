@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "doubly_linked_array.hpp"
 
 // Key used in the AVL tree.  It consists of a person's full name and
 // phone number.  Two keys are compared lexicographically by name and then
@@ -28,21 +29,22 @@ class AVLTree {
 public:
     // Node of the tree.  Exposed so callers can inspect search results.
     struct Node {
-        PersonKey        key;        // composite key
+        int              keyIndex;   // index into external storage
         int              height;     // height of the subtree
         Node*            left;       // left child
         Node*            right;      // right child
         std::vector<int> lineNumbers;// lines in the input file
 
-        Node(const PersonKey& k, int line);
+        Node(int kIdx, int line);
     };
 
-    AVLTree();
+    AVLTree(DoublyLinkedArray<PersonKey>& storage);
     ~AVLTree();
 
     void insert(const PersonKey& key, int lineNumber);
     bool remove(const PersonKey& key);
     Node* search(const PersonKey& key) const;
+    const PersonKey& getKey(const Node* n) const;
 
     std::vector<Node*> inorderNodes() const;
     std::vector<Node*> reverseInorderNodes() const;
@@ -52,6 +54,7 @@ public:
 
 private:
     Node* root;
+    DoublyLinkedArray<PersonKey>& m_storage;
 
     static int  height(Node* n);
     static int  max(int a, int b);
@@ -62,6 +65,7 @@ private:
     static Node* minNode(Node* node);
 
     int   keyCompare(const PersonKey& a, const PersonKey& b) const;
+    const PersonKey& key(Node* n) const;
     Node* balanceNode(Node* node);
     Node* insertNode(Node* node, const PersonKey& key, int lineNumber);
     Node* removeNode(Node* node, const PersonKey& key, bool& removed);

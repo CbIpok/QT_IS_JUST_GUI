@@ -4,18 +4,22 @@
 #include <string>
 #include <ostream>
 #include "record3.hpp"
+#include "doubly_linked_array.hpp"
 
 // Closed addressing hash table implemented in an object-oriented manner.
 // Each bucket (Cell) stores a single record or is marked as free.
 class HashTable {
 public:
-    explicit HashTable(size_t initialSize, double maxLoad = 0.75);
+    explicit HashTable(size_t initialSize,
+                       DoublyLinkedArray<Record>& storage,
+                       double maxLoad = 0.75);
     ~HashTable();
 
     bool insert(const Record& rec);
     bool remove(const Record& rec);
     bool search(const std::string& fio, int applicationNumber,
         size_t& out_index, int& steps) const;
+    bool get(const std::string& fio, int applicationNumber, Record& out) const;
 
     void clear();
     void print(std::ostream& out) const;
@@ -24,14 +28,15 @@ public:
 
 private:
     struct Cell {
-        bool   occupied;
-        Record data;
+        bool occupied;
+        int  index;  // index into external storage
         Cell();
     };
 
     size_t m_size, m_count, m_initialSize;
     double m_maxLoadFactor, m_minLoadFactor;
     Cell* table;
+    DoublyLinkedArray<Record>& m_storage;
 
     std::string makeKey(const std::string& fio, int applicationNumber) const;
     size_t      hashPrimary(const std::string& key) const;

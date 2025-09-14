@@ -4,9 +4,11 @@
 #include <fstream>
 #include <iostream>
 #include "../hashtable.hpp"
+#include "../doubly_linked_array.hpp"
 
 TEST(HashTable, BasicOperations) {
-    HashTable ht(4);
+    DoublyLinkedArray<Record> storage;
+    HashTable ht(4, storage);
     Record a{"Ivanov I I", 1, "Street", 12345, 10};
     Record b{"Petrov P P", 2, "Ave", 67890, 20};
     Record c{"Sidorov S S", 3, "Blvd", 11111, 30};
@@ -35,7 +37,8 @@ TEST(HashTable, BasicOperations) {
 
 TEST(HashTable, AutomaticExpansion) {
     // start with minimal size to force growth
-    HashTable small(2);
+    DoublyLinkedArray<Record> storage2;
+    HashTable small(2, storage2);
     for (int i = 0; i < 10; ++i) {
         Record r{"Name" + std::to_string(i), i, "St", 100 + i, i};
         EXPECT_TRUE(small.insert(r));

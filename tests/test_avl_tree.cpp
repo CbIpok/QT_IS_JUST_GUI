@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 #include "../avl_tree.h"
+#include "../doubly_linked_array.hpp"
 
 TEST(AVLTree, FullWorkflow) {
-    AVLTree tree;
+    DoublyLinkedArray<PersonKey> storage;
+    AVLTree tree(storage);
     tree.insert({"Ivanov", 100}, 1);
     tree.insert({"Petrov", 200}, 2);
     tree.insert({"Sidorov", 150}, 3);
@@ -16,14 +18,14 @@ TEST(AVLTree, FullWorkflow) {
     // check in-order traversal (ascending)
     auto inorder = tree.inorderNodes();
     ASSERT_EQ(inorder.size(), 3);
-    EXPECT_EQ(inorder[0]->key.fullName, "Ivanov");
-    EXPECT_EQ(inorder[1]->key.fullName, "Petrov");
-    EXPECT_EQ(inorder[2]->key.fullName, "Sidorov");
+    EXPECT_EQ(tree.getKey(inorder[0]).fullName, "Ivanov");
+    EXPECT_EQ(tree.getKey(inorder[1]).fullName, "Petrov");
+    EXPECT_EQ(tree.getKey(inorder[2]).fullName, "Sidorov");
 
     // check reverse in-order (descending)
     auto rev = tree.reverseInorderNodes();
-    EXPECT_EQ(rev[0]->key.fullName, "Sidorov");
-    EXPECT_EQ(rev[2]->key.fullName, "Ivanov");
+    EXPECT_EQ(tree.getKey(rev[0]).fullName, "Sidorov");
+    EXPECT_EQ(tree.getKey(rev[2]).fullName, "Ivanov");
 
     // remove specific line for a key
     EXPECT_TRUE(tree.removeLine({"Petrov", 200}, 5));
@@ -42,7 +44,7 @@ TEST(AVLTree, FullWorkflow) {
 
     auto remaining = tree.inorderNodes();
     ASSERT_EQ(remaining.size(), 1);
-    EXPECT_EQ(remaining[0]->key.fullName, "Sidorov");
+    EXPECT_EQ(tree.getKey(remaining[0]).fullName, "Sidorov");
 }
 
 

@@ -7,20 +7,18 @@
 // ---------------- HashTable::Cell ----------------
 
 HashTable::Cell::Cell()
-    : occupied(false),
-    data{ "", 0, "", 0LL, -1 }
-{}
+    : occupied(false), index(-1) {}
 
 // ---------------- HashTable ----------------
 
-HashTable::HashTable(size_t initialSize, double maxLoad)
+HashTable::HashTable(size_t initialSize, DoublyLinkedArray<Record>& storage, double maxLoad)
     : m_size(initialSize),
-    m_count(0),
-    m_initialSize(initialSize),
-    m_maxLoadFactor(maxLoad),
-    m_minLoadFactor(0.25),
-    table(new Cell[initialSize])
-{}
+      m_count(0),
+      m_initialSize(initialSize),
+      m_maxLoadFactor(maxLoad),
+      m_minLoadFactor(0.25),
+      table(new Cell[initialSize]),
+      m_storage(storage) {}
 
 HashTable::~HashTable() {
     delete[] table;
@@ -61,8 +59,20 @@ void HashTable::rehash(size_t newSize) {
     m_count = 0;
 
     for (size_t i = 0; i < oldSize; ++i) {
-        if (oldTable[i].occupied) {
-            insert(oldTable[i].data);
+        if (!oldTable[i].occupied) continue;
+        auto* node = m_storage.at(oldTable[i].index);
+        if (!node) continue;
+        const Record& rec = node->value;
+        std::string key = makeKey(rec.fio, rec.applicationNumber);
+        size_t base = hashPrimary(key);
+        for (size_t j = 0; j < m_size; ++j) {
+            size_t idx = hashSecondary(base, key, j);
+            if (!table[idx].occupied) {
+                table[idx].index = oldTable[i].index;
+                table[idx].occupied = true;
+                ++m_count;
+                break;
+            }
         }
     }
     delete[] oldTable;
@@ -75,7 +85,8 @@ bool HashTable::insert(const Record& rec) {
     for (size_t i = 0; i < m_size; ++i) {
         size_t idx = hashSecondary(base, key, i);
         if (!table[idx].occupied) {
-            table[idx].data = rec;
+            int index = m_storage.push_back(rec);
+            table[idx].index = index;
             table[idx].occupied = true;
             ++m_count;
             if ((double)m_count / m_size > m_maxLoadFactor) {
@@ -83,8 +94,9 @@ bool HashTable::insert(const Record& rec) {
             }
             return true;
         }
-        if (table[idx].data.fio == rec.fio &&
-            table[idx].data.applicationNumber == rec.applicationNumber)
+        auto* node = m_storage.at(table[idx].index);
+        if (node && node->value.fio == rec.fio &&
+            node->value.applicationNumber == rec.applicationNumber)
         {
             return false;
         }
@@ -102,8 +114,9 @@ bool HashTable::search(const std::string& fio, int applicationNumber,
         steps = int(i + 1);
         size_t idx = hashSecondary(base, key, i);
         if (!table[idx].occupied) return false;
-        if (table[idx].data.fio == fio &&
-            table[idx].data.applicationNumber == applicationNumber)
+        auto* node = m_storage.at(table[idx].index);
+        if (node && node->value.fio == fio &&
+            node->value.applicationNumber == applicationNumber)
         {
             out_index = idx;
             return true;
@@ -112,19 +125,32 @@ bool HashTable::search(const std::string& fio, int applicationNumber,
     return false;
 }
 
+bool HashTable::get(const std::string& fio, int applicationNumber, Record& out) const {
+    size_t idx; int steps = 0;
+    if (!search(fio, applicationNumber, idx, steps)) return false;
+    auto* node = m_storage.at(table[idx].index);
+    if (!node) return false;
+    out = node->value;
+    return true;
+}
+
 bool HashTable::remove(const Record& rec) {
     size_t idx; int steps = 0;
     if (!search(rec.fio, rec.applicationNumber, idx, steps))
         return false;
 
-    const Record& found = table[idx].data;
+    auto* node = m_storage.at(table[idx].index);
+    if (!node) return false;
+    const Record& found = node->value;
     if (found.street != rec.street ||
         found.phoneNumber != rec.phoneNumber)
     {
         return false;
     }
 
+    m_storage.remove(table[idx].index);
     table[idx].occupied = false;
+    table[idx].index = -1;
     --m_count;
     std::string key = makeKey(rec.fio, rec.applicationNumber);
     size_t      base = hashPrimary(key);
@@ -134,7 +160,8 @@ bool HashTable::remove(const Record& rec) {
         size_t curr = hashSecondary(base, key, i);
         if (!table[curr].occupied) break;
 
-        const Record& r2 = table[curr].data;
+        auto* node2 = m_storage.at(table[curr].index);
+        const Record& r2 = node2 ? node2->value : Record{"",0,"",0,0};
         size_t home = hashPrimary(makeKey(r2.fio, r2.applicationNumber));
 
         bool inRange;
@@ -144,9 +171,10 @@ bool HashTable::remove(const Record& rec) {
             inRange = (home <= prev || prev < curr);
 
         if (!inRange) {
-            table[prev].data = table[curr].data;
+            table[prev].index = table[curr].index;
             table[prev].occupied = true;
             table[curr].occupied = false;
+            table[curr].index = -1;
             prev = curr;
         }
     }
@@ -160,6 +188,11 @@ bool HashTable::remove(const Record& rec) {
 }
 
 void HashTable::clear() {
+    for (size_t i = 0; i < m_size; ++i) {
+        if (table[i].occupied) {
+            m_storage.remove(table[i].index);
+        }
+    }
     delete[] table;
     table = new Cell[m_size];
     m_count = 0;
@@ -171,7 +204,8 @@ void HashTable::print(std::ostream& out) const {
         out << i << "   | "
             << (table[i].occupied ? "OCCUPIED" : "FREE    ");
         if (table[i].occupied) {
-            const Record& r = table[i].data;
+            auto* node = m_storage.at(table[i].index);
+            const Record& r = node->value;
             out << " | "
                 << r.fio << ";"
                 << r.applicationNumber << ";"
@@ -189,7 +223,9 @@ void HashTable::saveToFile(const std::string& filename) const {
 }
 
 int HashTable::getOriginalLine(size_t index) const {
-    if (index < m_size && table[index].occupied)
-        return table[index].data.originalLine;
+    if (index < m_size && table[index].occupied) {
+        auto* node = m_storage.at(table[index].index);
+        if (node) return node->value.originalLine;
+    }
     return -1;
 }
