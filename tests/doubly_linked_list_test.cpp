@@ -3,7 +3,7 @@
 #include <sstream>
 
 TEST(DoublyLinkedListTest, PushAndContains) {
-    DoublyLinkedList list;
+    DoublyLinkedList<int> list;
     list.push_back(1);
     list.push_front(0);
     list.push_back(2);
@@ -14,7 +14,7 @@ TEST(DoublyLinkedListTest, PushAndContains) {
 }
 
 TEST(DoublyLinkedListTest, RemoveReversePrint) {
-    DoublyLinkedList list;
+    DoublyLinkedList<int> list;
     list.push_back(1);
     list.push_back(2);
     list.push_back(3);
@@ -31,7 +31,7 @@ TEST(DoublyLinkedListTest, RemoveReversePrint) {
 }
 
 TEST(DoublyLinkedListTest, RemoveBeforeValue) {
-    DoublyLinkedList list;
+    DoublyLinkedList<int> list;
     list.push_back(1);
     list.push_back(2);
     list.push_back(3);

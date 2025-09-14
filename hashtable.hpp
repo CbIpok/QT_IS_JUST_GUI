@@ -1,13 +1,13 @@
-﻿#ifndef HASHTABLE_HPP
+#ifndef HASHTABLE_HPP
 #define HASHTABLE_HPP
 
 #include <string>
 #include <ostream>
-#include "driver_record.hpp"
 
 struct Cell {
-    bool     occupied;
-    DriverRecord   data;
+    bool occupied;
+    std::string key; // license number
+    size_t index;    // position in linked list
     Cell();
 };
 
@@ -20,25 +20,22 @@ public:
     HashTable& operator=(HashTable&& other) noexcept;
     ~HashTable();
 
-    bool insert(const DriverRecord& rec);
-    bool remove(const DriverRecord& rec);
-    bool search(const std::string& licenseNumber,
-        size_t& out_index, int& steps) const;
+    bool insert(const std::string& key, size_t index);
+    bool get_index(const std::string& key, size_t& index, int& steps) const;
+    bool remove(const std::string& key, size_t& index);
+    bool update_index(const std::string& key, size_t newIndex);
 
     void clear();
     void print(std::ostream& out) const;
-    void saveToFile(const std::string& filename) const;
-    int  getOriginalLine(size_t index) const;
 
 private:
     size_t m_size, m_count, m_initialSize;
     double m_maxLoadFactor, m_minLoadFactor;
     Cell* table;
 
-    std::string makeKey(const std::string& licenseNumber) const;
-    size_t      hashPrimary(const std::string& key) const;
-    size_t      hashSecondary(size_t base, const std::string& key, size_t iteration) const;
-    void        rehash(size_t newSize);
+    size_t hashPrimary(const std::string& key) const;
+    size_t hashSecondary(size_t base, const std::string& key, size_t iteration) const;
+    void   rehash(size_t newSize);
 };
 
 #endif // HASHTABLE_HPP

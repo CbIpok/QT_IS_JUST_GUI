@@ -31,6 +31,8 @@ void avl_free(AVLTree* tree);
 
 bool avl_remove_line(AVLTree* tree, const OrderRecord& key, int lineNumber);
 
+bool avl_update_index(AVLTree* tree, const OrderRecord& key, int oldIndex, int newIndex);
+
 void avl_print_tree(const AVLTree* tree);
 
 #endif

@@ -248,6 +248,18 @@ bool avl_remove_line(AVLTree* tree, const OrderRecord& key, int lineNumber) {
     return true;
 }
 
+bool avl_update_index(AVLTree* tree, const OrderRecord& key, int oldIndex, int newIndex) {
+    AVLNode* node = avl_search(tree, key);
+    if (!node) return false;
+    for (int& idx : node->lineNumbers) {
+        if (idx == oldIndex) {
+            idx = newIndex;
+            return true;
+        }
+    }
+    return false;
+}
+
 static const char* sdown = "  |";
 static const char* slast = "  `";
 static const char* snone = "   ";
