@@ -2,3 +2,5 @@
 /.vs
 /tests/tests
 /KursAch
+/build
+/out
