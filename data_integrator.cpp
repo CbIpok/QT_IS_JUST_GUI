@@ -32,7 +32,7 @@ bool DataIntegrator::removeDriver(const std::string& licenseNumber) {
 
     for (std::size_t i = orders_.size(); i > 0; --i) {
         std::size_t orderIdx = i - 1;
-        const OrderRecord& order = orders_.at(orderIdx);
+        OrderRecord order = orders_.at(orderIdx);
         if (order.licenseNumber == licenseNumber) {
             removeOrderByIndex(order, orderIdx);
         }
