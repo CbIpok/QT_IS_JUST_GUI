@@ -1,9 +1,76 @@
 ﻿#include "data_integrator.hpp"
 
 #include <algorithm>
-#include <stdexcept>
-#include <vector>
 #include <cstdio>
+#include <fstream>
+#include <set>
+#include <stdexcept>
+#include <utility>
+#include <vector>
+
+namespace {
+
+void trimCarriageReturn(std::string& value) {
+    if (!value.empty() && value.back() == '\r') {
+        value.pop_back();
+    }
+}
+
+std::vector<std::string> splitLine(const std::string& line, char delimiter) {
+    std::vector<std::string> result;
+    std::string current;
+    for (char ch : line) {
+        if (ch == delimiter) {
+            result.push_back(current);
+            current.clear();
+        }
+        else {
+            current.push_back(ch);
+        }
+    }
+    result.push_back(current);
+    return result;
+}
+
+bool parseDriverLine(const std::string& line, DriverRecord& out) {
+    auto parts = splitLine(line, '|');
+    if (parts.size() != 4) return false;
+    for (auto& part : parts) trimCarriageReturn(part);
+
+    std::size_t consumed = 0;
+    int originalLine = 0;
+    try {
+        originalLine = std::stoi(parts[3], &consumed);
+    }
+    catch (...) {
+        return false;
+    }
+    if (consumed != parts[3].size()) return false;
+
+    if (parts[0].empty()) return false;
+
+    out.licenseNumber = std::move(parts[0]);
+    out.fio = std::move(parts[1]);
+    out.carBrand = std::move(parts[2]);
+    out.originalLine = originalLine;
+    return true;
+}
+
+bool parseOrderLine(const std::string& line, OrderRecord& out) {
+    auto parts = splitLine(line, '|');
+    if (parts.size() != 4) return false;
+    for (auto& part : parts) trimCarriageReturn(part);
+
+    if (parts[0].empty()) return false;
+
+    out.licenseNumber = std::move(parts[0]);
+    out.address = std::move(parts[1]);
+    out.cost = std::move(parts[2]);
+    out.date = std::move(parts[3]);
+    return true;
+}
+
+} // namespace
 
 DataIntegrator::DataIntegrator(std::size_t driverTableInitialSize, double maxLoadFactor)
     : drivers_(),
@@ -126,6 +193,85 @@ void DataIntegrator::clear() {
     driverTable_.clear();
     avl_free(&orderTree_);
     avl_init(&orderTree_);
+}
+
+bool DataIntegrator::loadFromFile(const std::string& path) {
+    std::ifstream input(path);
+    if (!input.is_open()) return false;
+
+    std::string header;
+    long long driverCountRaw = 0;
+    if (!(input >> header >> driverCountRaw)) return false;
+    if (header != "drivers" || driverCountRaw < 0) return false;
+    std::size_t driverCount = static_cast<std::size_t>(driverCountRaw);
+
+    std::string line;
+    std::getline(input, line); // consume the rest of the header line
+
+    std::vector<DriverRecord> parsedDrivers;
+    parsedDrivers.reserve(driverCount);
+    std::set<std::string> licenseNumbers;
+
+    for (std::size_t i = 0; i < driverCount; ++i) {
+        if (!std::getline(input, line)) return false;
+        DriverRecord record{};
+        if (!parseDriverLine(line, record)) return false;
+        if (!licenseNumbers.insert(record.licenseNumber).second) return false;
+        parsedDrivers.push_back(std::move(record));
+    }
+
+    long long orderCountRaw = 0;
+    if (!(input >> header >> orderCountRaw)) return false;
+    if (header != "orders" || orderCountRaw < 0) return false;
+    std::size_t orderCount = static_cast<std::size_t>(orderCountRaw);
+    std::getline(input, line);
+
+    std::vector<OrderRecord> parsedOrders;
+    parsedOrders.reserve(orderCount);
+
+    for (std::size_t i = 0; i < orderCount; ++i) {
+        if (!std::getline(input, line)) return false;
+        OrderRecord record{};
+        if (!parseOrderLine(line, record)) return false;
+        if (licenseNumbers.find(record.licenseNumber) == licenseNumbers.end()) return false;
+        parsedOrders.push_back(std::move(record));
+    }
+
+    clear();
+
+    for (const auto& driver : parsedDrivers) {
+        if (!addDriver(driver)) {
+            clear();
+            return false;
+        }
+    }
+
+    for (const auto& order : parsedOrders) {
+        if (!addOrder(order)) {
+            clear();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool DataIntegrator::saveToFile(const std::string& path) const {
+    std::ofstream output(path);
+    if (!output.is_open()) return false;
+
+    output << "drivers " << drivers_.size() << '\n';
+    drivers_.for_each([&](const DriverRecord& driver, std::size_t) {
+        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '|' << driver.originalLine << '\n';
+    });
+
+    output << "orders " << orders_.size() << '\n';
+    orders_.for_each([&](const OrderRecord& order, std::size_t) {
+        output << order.licenseNumber << '|' << order.address << '|' << order.cost << '|' << order.date << '\n';
+    });
+
+    output.flush();
+    return static_cast<bool>(output);
 }
 
 std::optional<std::size_t> DataIntegrator::findDriverIndex(const std::string& licenseNumber) const {
