@@ -272,21 +272,6 @@ private:
         if (node->next) node->next->prev = node->prev;
         else tail_ = node->prev;
     }
-
-    static bool is_prime(int n) {
-        if (n <= 1) return false;
-        if (n == 2) return true;
-        if (n % 2 == 0) return false;
-        for (int i = 3; 1LL * i * i <= n; i += 2)
-            if (n % i == 0) return false;
-        return true;
-    }
-
-    static int largest_prime_less_than(int n) {
-        for (int i = n - 1; i >= 2; --i)
-            if (is_prime(i)) return i;
-        return -1;
-    }
 };
 
 
