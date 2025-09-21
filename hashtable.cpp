@@ -1,26 +1,21 @@
 ﻿#include "hashtable.hpp"
-#include <functional>
-#include <cstdint>
-#include <iostream>
-#include <fstream>
 
-// ---------------- Cell ----------------
+#include <cstdint>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <utility>
 
 Cell::Cell()
-    : occupied(false),
-    data({ "", "", "", -1 })
-{}
+    : occupied(false), key(), index(0) {}
 
-// ---------------- HashTable ----------------
-
-HashTable::HashTable(size_t initialSize, double maxLoad)
+HashTable::HashTable(std::size_t initialSize, double maxLoad)
     : m_size(initialSize),
-    m_count(0),
-    m_initialSize(initialSize),
-    m_maxLoadFactor(maxLoad),
-    m_minLoadFactor(0.25),
-    table(new Cell[initialSize])
-{}
+      m_count(0),
+      m_initialSize(initialSize),
+      m_maxLoadFactor(maxLoad),
+      m_minLoadFactor(0.25),
+      table(new Cell[initialSize]) {}
 
 HashTable::HashTable(HashTable&& other) noexcept
     : m_size(other.m_size),
@@ -28,8 +23,7 @@ HashTable::HashTable(HashTable&& other) noexcept
       m_initialSize(other.m_initialSize),
       m_maxLoadFactor(other.m_maxLoadFactor),
       m_minLoadFactor(other.m_minLoadFactor),
-      table(other.table)
-{
+      table(other.table) {
     other.table = nullptr;
     other.m_size = other.m_count = other.m_initialSize = 0;
     other.m_maxLoadFactor = other.m_minLoadFactor = 0.0;
@@ -55,120 +49,79 @@ HashTable::~HashTable() {
     delete[] table;
 }
 
-std::string HashTable::makeKey(const std::string& licenseNumber) const {
-    return licenseNumber;
-}
+bool HashTable::insert(const std::string& key, std::size_t listIndex) {
+    std::size_t base = hashPrimary(key);
 
-// -- primary hash with debug logging --
-size_t HashTable::hashPrimary(const std::string& key) const {
-    static constexpr uint64_t MUL = 11400714819323198485ULL;
-    static std::hash<std::string> hasher;
-    uint64_t k = hasher(key);
-    uint64_t h = k * MUL;
-    size_t idx = h % m_size;
-    std::cout << "[Hash] primary(\"" << key << "\") = " << idx << "\n";
-    return idx;
-}
-
-// -- secondary (linear) probing with debug logging --
-size_t HashTable::hashSecondary(size_t base, const std::string& key, size_t iteration) const {
-    size_t idx = (base + iteration) % m_size;
-    if (iteration > 0) {
-        std::cout << "[Hash] secondary(\"" << key
-            << "\", iter=" << iteration
-            << ") = " << idx << "\n";
-    }
-    return idx;
-}
-
-void HashTable::rehash(size_t newSize) {
-    Cell* oldTable = table;
-    size_t oldSize = m_size;
-
-    table = new Cell[newSize];
-    m_size = newSize;
-    m_count = 0;
-
-    for (size_t i = 0; i < oldSize; ++i) {
-        if (oldTable[i].occupied) {
-            insert(oldTable[i].data);
-        }
-    }
-    delete[] oldTable;
-}
-
-bool HashTable::insert(const DriverRecord& rec) {
-    std::string key = makeKey(rec.licenseNumber);
-    size_t      base = hashPrimary(key);
-
-    for (size_t i = 0; i < m_size; ++i) {
-        size_t idx = hashSecondary(base, key, i);
+    for (std::size_t i = 0; i < m_size; ++i) {
+        std::size_t idx = hashSecondary(base, key, i);
         if (!table[idx].occupied) {
-            table[idx].data = rec;
             table[idx].occupied = true;
+            table[idx].key = key;
+            table[idx].index = listIndex;
             ++m_count;
-            if ((double)m_count / m_size > m_maxLoadFactor) {
+            if (static_cast<double>(m_count) / m_size > m_maxLoadFactor) {
                 rehash(m_size * 2);
             }
             return true;
         }
-        if (table[idx].data.licenseNumber == rec.licenseNumber)
-        {
+        if (table[idx].key == key) {
             return false;
         }
     }
+
     rehash(m_size * 2);
-    return insert(rec);
+    return insert(key, listIndex);
 }
 
-bool HashTable::search(const std::string& licenseNumber,
-    size_t& out_index, int& steps) const {
-    std::string key = makeKey(licenseNumber);
-    size_t      base = hashPrimary(key);
+bool HashTable::remove(const std::string& key, std::size_t& removedIndex) {
+    int steps = 0;
+    std::size_t slot = find_slot(key, &steps);
+    if (slot == m_size) return false;
 
-    for (size_t i = 0; i < m_size; ++i) {
-        steps = int(i + 1);
-        size_t idx = hashSecondary(base, key, i);
-        if (!table[idx].occupied) return false;
-        if (table[idx].data.licenseNumber == licenseNumber)
-        {
-            out_index = idx;
-            return true;
-        }
-    }
-    return false;
-}
-
-bool HashTable::remove(const DriverRecord& rec) {
-    size_t idx; int steps = 0;
-    if (!search(rec.licenseNumber, idx, steps))
-        return false;
-
-    const DriverRecord& found = table[idx].data;
-    if (found.fio != rec.fio ||
-        found.carBrand != rec.carBrand)
-    {
-        return false;
-    }
-
-    table[idx].occupied = false;
+    removedIndex = table[slot].index;
+    table[slot].occupied = false;
+    table[slot].key.clear();
+    table[slot].index = 0;
     --m_count;
 
-    size_t curr = (idx + 1) % m_size;
+    std::size_t curr = (slot + 1) % m_size;
     while (table[curr].occupied) {
-        DriverRecord tmp = table[curr].data;
+        std::string keyToReinsert = std::move(table[curr].key);
+        std::size_t indexToReinsert = table[curr].index;
         table[curr].occupied = false;
+        table[curr].index = 0;
         --m_count;
-        insert(tmp);
+        insert(keyToReinsert, indexToReinsert);
         curr = (curr + 1) % m_size;
     }
 
     if (m_size > m_initialSize &&
-        (double)m_count / m_size < m_minLoadFactor)
-    {
+        static_cast<double>(m_count) / m_size < m_minLoadFactor) {
         rehash(m_size / 2);
     }
     return true;
+}
+
+bool HashTable::search(const std::string& key, std::size_t& listIndex, int& steps) const {
+    int localSteps = 0;
+    std::size_t slot = find_slot(key, &localSteps);
+    steps = localSteps;
+    if (slot == m_size) return false;
+    listIndex = table[slot].index;
+    return true;
+}
+
+bool HashTable::update_index(const std::string& key, std::size_t newIndex) {
+    int steps = 0;
+    std::size_t slot = find_slot(key, &steps);
+    if (slot == m_size) return false;
+    table[slot].index = newIndex;
+    return true;
+}
+
+bool HashTable::contains(const std::string& key) const {
+    int steps = 0;
+    return find_slot(key, &steps) != m_size;
 }
 
 void HashTable::clear() {
@@ -178,17 +131,12 @@ void HashTable::clear() {
 }
 
 void HashTable::print(std::ostream& out) const {
-    out << "Idx | Status   | Record (license;fio;brand;line)\n";
-    for (size_t i = 0; i < m_size; ++i) {
+    out << "Idx | Status   | Key | ListIndex\n";
+    for (std::size_t i = 0; i < m_size; ++i) {
         out << i << "   | "
             << (table[i].occupied ? "OCCUPIED" : "FREE    ");
         if (table[i].occupied) {
-            const DriverRecord& r = table[i].data;
-            out << " | "
-                << r.licenseNumber << ";"
-                << r.fio << ";"
-                << r.carBrand << ";"
-                << r.originalLine;
+            out << " | " << table[i].key << " | " << table[i].index;
         }
         out << "\n";
     }
@@ -199,8 +147,50 @@ void HashTable::saveToFile(const std::string& filename) const {
     print(ofs);
 }
 
-int HashTable::getOriginalLine(size_t index) const {
-    if (index < m_size && table[index].occupied)
-        return table[index].data.originalLine;
-    return -1;
+std::size_t HashTable::hashPrimary(const std::string& key) const {
+    static constexpr std::uint64_t MUL = 11400714819323198485ULL;
+    static std::hash<std::string> hasher;
+    std::uint64_t k = hasher(key);
+    std::uint64_t h = k * MUL;
+    std::size_t idx = static_cast<std::size_t>(h % m_size);
+    std::cout << "[Hash] primary(\"" << key << "\") = " << idx << "\n";
+    return idx;
+}
+
+std::size_t HashTable::hashSecondary(std::size_t base, const std::string& key, std::size_t iteration) const {
+    std::size_t idx = (base + iteration) % m_size;
+    if (iteration > 0) {
+        std::cout << "[Hash] secondary(\"" << key
+                  << "\", iter=" << iteration
+                  << ") = " << idx << "\n";
+    }
+    return idx;
+}
+
+std::size_t HashTable::find_slot(const std::string& key, int* steps) const {
+    std::size_t base = hashPrimary(key);
+
+    for (std::size_t i = 0; i < m_size; ++i) {
+        if (steps) *steps = static_cast<int>(i + 1);
+        std::size_t idx = hashSecondary(base, key, i);
+        if (!table[idx].occupied) return m_size;
+        if (table[idx].key == key) return idx;
+    }
+    return m_size;
+}
+
+void HashTable::rehash(std::size_t newSize) {
+    Cell* oldTable = table;
+    std::size_t oldSize = m_size;
+
+    table = new Cell[newSize];
+    m_size = newSize;
+    m_count = 0;
+
+    for (std::size_t i = 0; i < oldSize; ++i) {
+        if (oldTable[i].occupied) {
+            insert(oldTable[i].key, oldTable[i].index);
+        }
+    }
+    delete[] oldTable;
 }

@@ -1,5 +1,6 @@
-#include <string>
+﻿#include <string>
 #include <vector>
+#include <algorithm>
 #include "avl_tree.h"
 #include <iostream>
 
@@ -55,14 +56,14 @@ static int key_compare(const OrderRecord& a, const OrderRecord& b) {
     return 0;
 }
 
-static AVLNode* create_node(const OrderRecord& key, int lineNumber) {
+static AVLNode* create_node(const OrderRecord& key, std::size_t listIndex) {
     AVLNode* node = new AVLNode;
     node->key = key;
     node->height = 1;
     node->left = 0;
     node->right = 0;
-    node->lineNumbers.clear();
-    node->lineNumbers.push_back(lineNumber);
+    node->listIndices.clear();
+    node->listIndices.push_back(listIndex);
     return node;
 }
 
@@ -96,19 +97,18 @@ static AVLNode* min_node(AVLNode* node) {
     return node;
 }
 
-static AVLNode* insert_node(AVLNode* node, const OrderRecord& key, int lineNumber) {
-    if (!node) return create_node(key, lineNumber);
+static AVLNode* insert_node(AVLNode* node, const OrderRecord& key, std::size_t listIndex) {
+    if (!node) return create_node(key, listIndex);
 
     int cmp = key_compare(key, node->key);
     if (cmp < 0) {
-        node->left = insert_node(node->left, key, lineNumber);
+        node->left = insert_node(node->left, key, listIndex);
     }
     else if (cmp > 0) {
-        node->right = insert_node(node->right, key, lineNumber);
+        node->right = insert_node(node->right, key, listIndex);
     }
     else {
-        // Key already exists, append the line number
-        node->lineNumbers.push_back(lineNumber);
+        node->listIndices.push_back(listIndex);
         return node;
     }
 
@@ -126,7 +126,6 @@ static AVLNode* remove_node(AVLNode* node, const OrderRecord& key, bool& removed
         node->right = remove_node(node->right, key, removed);
     }
     else {
-        // Node found
         removed = true;
         if (!node->left) {
             AVLNode* temp = node->right;
@@ -141,7 +140,7 @@ static AVLNode* remove_node(AVLNode* node, const OrderRecord& key, bool& removed
         bool dummy = false;
         AVLNode* temp = min_node(node->right);
         node->key = temp->key;
-        node->lineNumbers = temp->lineNumbers;
+        node->listIndices = temp->listIndices;
         node->right = remove_node(node->right, temp->key, dummy);
     }
 
@@ -177,13 +176,12 @@ static void reverse_inorder_traversal_nodes(AVLNode* node, std::vector<AVLNode*>
     reverse_inorder_traversal_nodes(node->left, result);
 }
 
-// Public functions
 void avl_init(AVLTree* tree) {
     tree->root = 0;
 }
 
-void avl_insert(AVLTree* tree, const OrderRecord& key, int lineNumber) {
-    tree->root = insert_node(tree->root, key, lineNumber);
+void avl_insert(AVLTree* tree, const OrderRecord& key, std::size_t listIndex) {
+    tree->root = insert_node(tree->root, key, listIndex);
 }
 
 bool avl_remove(AVLTree* tree, const OrderRecord& key) {
@@ -193,6 +191,10 @@ bool avl_remove(AVLTree* tree, const OrderRecord& key) {
 }
 
 AVLNode* avl_search(AVLTree* tree, const OrderRecord& key) {
+    return search_node(tree->root, key);
+}
+
+const AVLNode* avl_search(const AVLTree* tree, const OrderRecord& key) {
     return search_node(tree->root, key);
 }
 
@@ -213,39 +215,40 @@ void avl_free(AVLTree* tree) {
     tree->root = 0;
 }
 
-bool avl_remove_line(AVLTree* tree, const OrderRecord& key, int lineNumber) {
+bool avl_remove_index(AVLTree* tree, const OrderRecord& key, std::size_t listIndex) {
     AVLNode* node = avl_search(tree, key);
     if (!node) {
-        // Node with such key not found
         return false;
     }
 
-    int index = -1;
-    int size = node->lineNumbers.size();
-    for (int i = 0; i < size; i++) {
-        if (node->lineNumbers[i] == lineNumber) {
-            index = i;
-            break;
-        }
-    }
-
-    if (index == -1) {
-        // This line number not found for this key
+    auto it = std::find(node->listIndices.begin(), node->listIndices.end(), listIndex);
+    if (it == node->listIndices.end()) {
         return false;
     }
 
-    // Remove the line number by shifting
-    for (int i = index; i < size - 1; i++) {
-        node->lineNumbers[i] = node->lineNumbers[i + 1];
-    }
-    node->lineNumbers.pop_back();
+    node->listIndices.erase(it);
 
-    // If empty after removal, remove the whole node
-    if (node->lineNumbers.empty()) {
+    if (node->listIndices.empty()) {
         return avl_remove(tree, key);
     }
 
     return true;
+}
+
+bool avl_replace_index(AVLTree* tree, const OrderRecord& key, std::size_t oldIndex, std::size_t newIndex) {
+    AVLNode* node = avl_search(tree, key);
+    if (!node) {
+        return false;
+    }
+
+    for (std::size_t& idx : node->listIndices) {
+        if (idx == oldIndex) {
+            idx = newIndex;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static const char* sdown = "  |";
@@ -259,7 +262,6 @@ static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems,
         std::cout << stems[i];
     }
 
-    // Print current node
     std::cout << "--";
     if (childType == 'L') {
         std::cout << "(L) ";
@@ -269,11 +271,11 @@ static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems,
     }
 
     std::cout << node->key.licenseNumber << " " << node->key.address;
-    if (!node->lineNumbers.empty()) {
+    if (!node->listIndices.empty()) {
         std::cout << " [";
-        for (std::size_t i = 0; i < node->lineNumbers.size(); i++) {
-            std::cout << node->lineNumbers[i];
-            if (i + 1 < node->lineNumbers.size()) std::cout << ",";
+        for (std::size_t i = 0; i < node->listIndices.size(); i++) {
+            std::cout << node->listIndices[i];
+            if (i + 1 < node->listIndices.size()) std::cout << ",";
         }
         std::cout << "]";
     }
@@ -287,24 +289,20 @@ static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems,
     std::size_t oldSize = stems.size();
 
     if (left && right) {
-        // Left child: not last
         stems.push_back(sdown);
         print_tree_recursive(left, stems, 'L');
         stems.pop_back();
 
-        // Right child: last
         stems.push_back(slast);
         print_tree_recursive(right, stems, 'R');
         stems.pop_back();
     }
     else if (left) {
-        // Only left child
         stems.push_back(slast);
         print_tree_recursive(left, stems, 'L');
         stems.pop_back();
     }
     else {
-        // Only right child
         stems.push_back(slast);
         print_tree_recursive(right, stems, 'R');
         stems.pop_back();
@@ -319,5 +317,5 @@ void avl_print_tree(const AVLTree* tree) {
         return;
     }
     std::vector<const char*> stems;
-    print_tree_recursive(tree->root, stems, '\0'); // root has no parent
+    print_tree_recursive(tree->root, stems, '\0');
 }

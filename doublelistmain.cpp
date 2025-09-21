@@ -1,11 +1,11 @@
-#include <iostream>
+﻿#include <iostream>
 #include <vector>
 #include "DoublyLinkedList.hpp"
 
 using namespace std;
 
 void menu() {
-    vector<DoublyLinkedList> lists;
+    vector<DoublyLinkedList<int>> lists;
     lists.reserve(10);
 
     int choice, listIndex, value;
@@ -128,7 +128,7 @@ void menu() {
                 cout << "Enter the index of the input list: ";
                 cin >> listIndex;
                 if (listIndex >= 0 && listIndex < (int)lists.size()) {
-                    DoublyLinkedList generated = lists[listIndex].map_to_prev_prime();
+                    DoublyLinkedList<int> generated = lists[listIndex].map_to_prev_prime();
                     lists.emplace_back(std::move(generated));
                     cout << "New list generated at index " << (lists.size() - 1) << ".\n";
                 }

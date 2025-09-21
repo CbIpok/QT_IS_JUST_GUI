@@ -1,40 +1,58 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 #include "hashtable.hpp"
-#include <vector>
 
-TEST(HashTableTest, InsertSearchRemove) {
+namespace {
+
+class HashTableTest_InsertSearchRemove : public ::testing::Test {
+protected:
+    void TestBody() override;
+};
+
+class HashTableTest_InsertDuplicateAndRehash : public ::testing::Test {
+protected:
+    void TestBody() override;
+};
+
+void HashTableTest_InsertSearchRemove::TestBody() {
     HashTable table(3);
-    DriverRecord r1{"TK-25-111111-2023", "Novikova Daria Sergeevna", "BMW", 10};
-    DriverRecord r2{"TK-25-222222-2024", "Melnikov Igor Pavlovich", "Mercedes", 20};
-    EXPECT_TRUE(table.insert(r1));
-    EXPECT_TRUE(table.insert(r2));
-    size_t idx; int steps;
-    EXPECT_TRUE(table.search("TK-25-111111-2023", idx, steps));
-    EXPECT_EQ(table.getOriginalLine(idx), 10);
-    EXPECT_TRUE(table.remove(r1));
-    EXPECT_FALSE(table.search("TK-25-111111-2023", idx, steps));
-    EXPECT_TRUE(table.search("TK-25-222222-2024", idx, steps));
+    EXPECT_TRUE(table.insert("TK-25-111111-2023", 10));
+    EXPECT_TRUE(table.insert("TK-25-222222-2024", 20));
+
+    std::size_t listIndex = 0; int steps = 0;
+    EXPECT_TRUE(table.search("TK-25-111111-2023", listIndex, steps));
+    EXPECT_EQ(listIndex, 10u);
+
+    std::size_t removedIndex = 0;
+    EXPECT_TRUE(table.remove("TK-25-111111-2023", removedIndex));
+    EXPECT_EQ(removedIndex, 10u);
+    EXPECT_FALSE(table.search("TK-25-111111-2023", listIndex, steps));
+
+    EXPECT_TRUE(table.search("TK-25-222222-2024", listIndex, steps));
+    EXPECT_EQ(listIndex, 20u);
     table.clear();
-    EXPECT_FALSE(table.search("TK-25-222222-2024", idx, steps));
+    EXPECT_FALSE(table.search("TK-25-222222-2024", listIndex, steps));
 }
 
-TEST(HashTableTest, InsertDuplicateAndRehash) {
+void HashTableTest_InsertDuplicateAndRehash::TestBody() {
     HashTable table(3);
-    DriverRecord r{"TK-25-111111-2023", "Novikova Daria Sergeevna", "BMW", 0};
-    EXPECT_TRUE(table.insert(r));
-    EXPECT_FALSE(table.insert(r));
+    EXPECT_TRUE(table.insert("TK-25-111111-2023", 0));
+    EXPECT_FALSE(table.insert("TK-25-111111-2023", 1));
 
-    std::vector<DriverRecord> records;
     for (int i = 0; i < 10; ++i) {
-        records.push_back({"TK-25-" + std::to_string(100000 + i),
-                          "Name" + std::to_string(i),
-                          "Brand", i});
+        std::string key = "TK-25-" + std::to_string(100000 + i);
+        table.insert(key, static_cast<std::size_t>(i));
     }
-    for (const auto& rec : records) {
-        table.insert(rec);
-    }
-    size_t idx; int steps;
-    for (const auto& rec : records) {
-        EXPECT_TRUE(table.search(rec.licenseNumber, idx, steps));
-    }
+
+    std::size_t listIndex = 0; int steps = 0;
+    EXPECT_TRUE(table.search("TK-25-111111-2023", listIndex, steps));
+    EXPECT_EQ(listIndex, 0u);
+}
+
+} // namespace
+
+void RegisterHashTableTests() {
+    ::testing::RegisterTest("HashTableTest", "InsertSearchRemove", nullptr, nullptr, __FILE__, __LINE__,
+        []() -> ::testing::Test* { return new HashTableTest_InsertSearchRemove; });
+    ::testing::RegisterTest("HashTableTest", "InsertDuplicateAndRehash", nullptr, nullptr, __FILE__, __LINE__,
+        []() -> ::testing::Test* { return new HashTableTest_InsertDuplicateAndRehash; });
 }

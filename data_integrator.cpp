@@ -1,0 +1,171 @@
+﻿#include "data_integrator.hpp"
+
+#include <algorithm>
+#include <stdexcept>
+#include <vector>
+#include <cstdio>
+
+DataIntegrator::DataIntegrator(std::size_t driverTableInitialSize, double maxLoadFactor)
+    : drivers_(),
+      orders_(),
+      driverTable_(driverTableInitialSize, maxLoadFactor),
+      orderTree_{} {
+    avl_init(&orderTree_);
+}
+
+bool DataIntegrator::addDriver(const DriverRecord& record) {
+    if (driverTable_.contains(record.licenseNumber)) return false;
+
+    std::size_t index = drivers_.push_back(record);
+    if (!driverTable_.insert(record.licenseNumber, index)) {
+        DoublyLinkedList<DriverRecord>::SwapRemoveResult cleanup;
+        drivers_.remove_by_index(index, cleanup);
+        return false;
+    }
+    return true;
+}
+
+bool DataIntegrator::removeDriver(const std::string& licenseNumber) {
+    auto driverIdxOpt = findDriverIndex(licenseNumber);
+    if (!driverIdxOpt) return false;
+    std::size_t driverIdx = *driverIdxOpt;
+
+    for (std::size_t i = orders_.size(); i > 0; --i) {
+        std::size_t orderIdx = i - 1;
+        const OrderRecord& order = orders_.at(orderIdx);
+        if (order.licenseNumber == licenseNumber) {
+            removeOrderByIndex(order, orderIdx);
+        }
+    }
+
+    DoublyLinkedList<DriverRecord>::SwapRemoveResult result;
+    drivers_.remove_by_index(driverIdx, result);
+
+    std::size_t removedIndex = 0;
+    driverTable_.remove(licenseNumber, removedIndex);
+
+    if (result.swapped && drivers_.size() > driverIdx) {
+        DriverRecord& movedDriver = drivers_.at(driverIdx);
+        driverTable_.update_index(movedDriver.licenseNumber, driverIdx);
+    }
+    return true;
+}
+
+bool DataIntegrator::updateDriver(const std::string& licenseNumber, const DriverRecord& updated) {
+    auto driverIdxOpt = findDriverIndex(licenseNumber);
+    if (!driverIdxOpt) return false;
+    if (updated.licenseNumber != licenseNumber) return false;
+
+    DriverRecord& stored = drivers_.at(*driverIdxOpt);
+    stored = updated;
+    return true;
+}
+
+
+bool DataIntegrator::hasDriver(const std::string& licenseNumber) const {
+    return driverTable_.contains(licenseNumber);
+}
+
+std::optional<DriverRecord> DataIntegrator::findDriver(const std::string& licenseNumber) const {
+    auto driverIdxOpt = findDriverIndex(licenseNumber);
+    if (!driverIdxOpt) return std::nullopt;
+    return drivers_.at(*driverIdxOpt);
+}
+
+bool DataIntegrator::addOrder(const OrderRecord& record) {
+    if (!driverTable_.contains(record.licenseNumber)) return false;
+
+    std::size_t index = orders_.push_back(record);
+    avl_insert(&orderTree_, record, index);
+    return true;
+}
+
+bool DataIntegrator::removeOrder(const OrderRecord& record) {
+    auto idxOpt = findOrderIndex(record, &record);
+    if (!idxOpt) return false;
+    removeOrderByIndex(record, *idxOpt);
+    return true;
+}
+
+bool DataIntegrator::updateOrder(const OrderRecord& current, const OrderRecord& updated) {
+    auto idxOpt = findOrderIndex(current, &current);
+    if (!idxOpt) return false;
+
+    if (!driverTable_.contains(updated.licenseNumber)) return false;
+
+    std::size_t idx = *idxOpt;
+    bool keyChanged = current.licenseNumber != updated.licenseNumber ||
+                      current.address != updated.address;
+
+    if (keyChanged) {
+        avl_remove_index(&orderTree_, current, idx);
+        avl_insert(&orderTree_, updated, idx);
+    }
+
+    orders_.at(idx) = updated;
+    return true;
+}
+
+bool DataIntegrator::hasOrder(const OrderRecord& record) const {
+    return findOrderIndex(record, &record).has_value();
+}
+
+std::vector<OrderRecord> DataIntegrator::ordersForDriver(const std::string& licenseNumber) const {
+    std::vector<OrderRecord> result;
+    orders_.for_each([&](const OrderRecord& order, std::size_t) {
+        if (order.licenseNumber == licenseNumber) {
+            result.push_back(order);
+        }
+    });
+    return result;
+}
+
+void DataIntegrator::clear() {
+    drivers_.clear();
+    orders_.clear();
+    driverTable_.clear();
+    avl_free(&orderTree_);
+    avl_init(&orderTree_);
+}
+
+std::optional<std::size_t> DataIntegrator::findDriverIndex(const std::string& licenseNumber) const {
+    std::size_t index = 0;
+    int steps = 0;
+    if (!driverTable_.search(licenseNumber, index, steps)) return std::nullopt;
+    return index;
+}
+
+std::optional<std::size_t> DataIntegrator::findOrderIndex(const OrderRecord& key, const OrderRecord* match) const {
+    const AVLNode* node = avl_search(&orderTree_, key);
+    if (!node) return std::nullopt;
+    if (!match) {
+        if (node->listIndices.empty()) return std::nullopt;
+        return node->listIndices.front();
+    }
+
+    for (std::size_t idx : node->listIndices) {
+        const OrderRecord& stored = orders_.at(idx);
+        if (stored.licenseNumber == match->licenseNumber &&
+            stored.address == match->address &&
+            stored.cost == match->cost &&
+            stored.date == match->date) {
+            return idx;
+        }
+    }
+    return std::nullopt;
+}
+
+void DataIntegrator::removeOrderByIndex(const OrderRecord& key, std::size_t index) {
+    DoublyLinkedList<OrderRecord>::SwapRemoveResult result;
+    if (!orders_.remove_by_index(index, result)) return;
+
+    avl_remove_index(&orderTree_, key, index);
+
+    if (result.swapped && orders_.size() > index) {
+        OrderRecord& movedOrder = orders_.at(index);
+        avl_replace_index(&orderTree_, movedOrder, result.swappedFromIndex, index);
+    }
+}
+
+
+
