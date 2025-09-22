@@ -2,7 +2,9 @@
 #define AVL_TREE_H
 
 #include <cstddef>
+#include <string>
 #include <vector>
+
 #include "order_record.hpp"
 
 struct AVLNode {
@@ -36,5 +38,6 @@ bool avl_remove_index(AVLTree* tree, const OrderRecord& key, std::size_t listInd
 bool avl_replace_index(AVLTree* tree, const OrderRecord& key, std::size_t oldIndex, std::size_t newIndex);
 
 void avl_print_tree(const AVLTree* tree);
+std::string avl_tree_to_string(const AVLTree* tree);
 
 #endif

@@ -274,6 +274,40 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
     return static_cast<bool>(output);
 }
 
+std::string DataIntegrator::hashTableAsText() const {
+    return driverTable_.toString();
+}
+
+std::string DataIntegrator::orderTreeAsText() const {
+    return avl_tree_to_string(&orderTree_);
+}
+
+bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std::string& treePath) const {
+    if (!hashTablePath.empty()) {
+        std::ofstream hashOut(hashTablePath);
+        if (!hashOut.is_open()) {
+            return false;
+        }
+        hashOut << hashTableAsText();
+        if (!hashOut) {
+            return false;
+        }
+    }
+
+    if (!treePath.empty()) {
+        std::ofstream treeOut(treePath);
+        if (!treeOut.is_open()) {
+            return false;
+        }
+        treeOut << orderTreeAsText();
+        if (!treeOut) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 std::optional<std::size_t> DataIntegrator::findDriverIndex(const std::string& licenseNumber) const {
     std::size_t index = 0;
     int steps = 0;

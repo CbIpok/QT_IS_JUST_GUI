@@ -1,8 +1,10 @@
-﻿#include <string>
-#include <vector>
-#include <algorithm>
-#include "avl_tree.h"
+﻿#include <algorithm>
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "avl_tree.h"
 
 static int height(AVLNode* n) {
     return n ? n->height : 0;
@@ -251,71 +253,80 @@ bool avl_replace_index(AVLTree* tree, const OrderRecord& key, std::size_t oldInd
     return false;
 }
 
-static const char* sdown = "  |";
-static const char* slast = "  `";
-static const char* snone = "   ";
+namespace {
 
-static void print_tree_recursive(AVLNode* node, std::vector<const char*>& stems, char childType) {
-    if (!node) return;
-
-    for (std::size_t i = 0; i < stems.size(); i++) {
-        std::cout << stems[i];
+void tree_to_stream(const AVLNode* node,
+                    std::ostream&     out,
+                    const std::string& prefix,
+                    bool                isTail,
+                    bool                isRoot) {
+    if (!node) {
+        return;
     }
 
-    std::cout << "--";
-    if (childType == 'L') {
-        std::cout << "(L) ";
-    }
-    else if (childType == 'R') {
-        std::cout << "(R) ";
+    out << prefix;
+    if (!isRoot) {
+        out << (isTail ? "`--" : "|--");
     }
 
-    std::cout << node->key.licenseNumber << " " << node->key.address;
+    out << node->key.licenseNumber << " | "
+        << node->key.address << " | "
+        << node->key.cost << " | "
+        << node->key.date;
+
     if (!node->listIndices.empty()) {
-        std::cout << " [";
-        for (std::size_t i = 0; i < node->listIndices.size(); i++) {
-            std::cout << node->listIndices[i];
-            if (i + 1 < node->listIndices.size()) std::cout << ",";
+        out << " [";
+        for (std::size_t i = 0; i < node->listIndices.size(); ++i) {
+            out << node->listIndices[i];
+            if (i + 1 < node->listIndices.size()) {
+                out << ",";
+            }
         }
-        std::cout << "]";
+        out << "]";
     }
-    std::cout << "\n";
+    out << '\n';
 
-    AVLNode* left = node->left;
-    AVLNode* right = node->right;
-
-    if (!left && !right) return;
-
-    std::size_t oldSize = stems.size();
-
-    if (left && right) {
-        stems.push_back(sdown);
-        print_tree_recursive(left, stems, 'L');
-        stems.pop_back();
-
-        stems.push_back(slast);
-        print_tree_recursive(right, stems, 'R');
-        stems.pop_back();
+    std::vector<const AVLNode*> children;
+    if (node->left) {
+        children.push_back(node->left);
     }
-    else if (left) {
-        stems.push_back(slast);
-        print_tree_recursive(left, stems, 'L');
-        stems.pop_back();
-    }
-    else {
-        stems.push_back(slast);
-        print_tree_recursive(right, stems, 'R');
-        stems.pop_back();
+    if (node->right) {
+        children.push_back(node->right);
     }
 
-    stems.resize(oldSize);
+    if (children.empty()) {
+        return;
+    }
+
+    std::string childPrefix;
+    if (!isRoot) {
+        childPrefix = prefix + (isTail ? "    " : "|   ");
+    }
+
+    for (std::size_t i = 0; i < children.size(); ++i) {
+        bool childIsTail = (i + 1 == children.size());
+        if (isRoot) {
+            tree_to_stream(children[i], out, "", childIsTail, false);
+        }
+        else {
+            tree_to_stream(children[i], out, childPrefix, childIsTail, false);
+        }
+    }
+}
+
+} // namespace
+
+std::string avl_tree_to_string(const AVLTree* tree) {
+    std::ostringstream out;
+    if (!tree || !tree->root) {
+        out << "(empty tree)\n";
+        return out.str();
+    }
+
+    tree_to_stream(tree->root, out, "", true, true);
+    return out.str();
 }
 
 void avl_print_tree(const AVLTree* tree) {
-    if (!tree || !tree->root) {
-        std::cout << "(empty tree)\n";
-        return;
-    }
-    std::vector<const char*> stems;
-    print_tree_recursive(tree->root, stems, '\0');
+    std::cout << avl_tree_to_string(tree);
 }

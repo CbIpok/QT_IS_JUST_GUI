@@ -55,3 +55,18 @@ TEST(AVLTreeTest, InorderTraversal) {
     EXPECT_EQ(nodes[2]->key.licenseNumber, "c");
     avl_free(&tree);
 }
+
+TEST(AVLTreeTest, DumpToStringContainsBranching) {
+    AVLTree tree;
+    avl_init(&tree);
+    avl_insert(&tree, {"m", "mid", "1", "2025"}, 0);
+    avl_insert(&tree, {"a", "left", "1", "2025"}, 1);
+    avl_insert(&tree, {"z", "right", "1", "2025"}, 2);
+
+    std::string dump = avl_tree_to_string(&tree);
+    EXPECT_NE(dump.find("m | mid"), std::string::npos);
+    EXPECT_NE(dump.find("|--"), std::string::npos);
+    EXPECT_NE(dump.find("`--"), std::string::npos);
+
+    avl_free(&tree);
+}

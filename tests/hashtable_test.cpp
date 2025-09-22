@@ -37,3 +37,15 @@ TEST(HashTableTest, InsertDuplicateAndRehash) {
     EXPECT_TRUE(table.search("TK-25-111111-2023", listIndex, steps));
     EXPECT_EQ(listIndex, 0u);
 }
+
+TEST(HashTableTest, DumpToStringContainsEntries) {
+    HashTable table(5);
+    ASSERT_TRUE(table.insert("HX-001", 10));
+    ASSERT_TRUE(table.insert("HX-002", 20));
+
+    std::string dump = table.toString();
+    EXPECT_NE(dump.find("HashTable dump"), std::string::npos);
+    EXPECT_NE(dump.find("HX-001"), std::string::npos);
+    EXPECT_NE(dump.find("HX-002"), std::string::npos);
+    EXPECT_NE(dump.find("[0]"), std::string::npos);
+}

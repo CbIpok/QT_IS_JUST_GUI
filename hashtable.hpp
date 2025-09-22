@@ -31,6 +31,7 @@ public:
     void clear();
     void print(std::ostream& out) const;
     void saveToFile(const std::string& filename) const;
+    std::string toString() const;
 
     std::size_t capacity() const { return m_size; }
     std::size_t size() const { return m_count; }
