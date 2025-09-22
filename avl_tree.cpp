@@ -1,5 +1,4 @@
 ﻿#include <algorithm>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -171,13 +170,6 @@ static void inorder_traversal_nodes(AVLNode* node, std::vector<AVLNode*>& result
     inorder_traversal_nodes(node->right, result);
 }
 
-static void reverse_inorder_traversal_nodes(AVLNode* node, std::vector<AVLNode*>& result) {
-    if (!node) return;
-    reverse_inorder_traversal_nodes(node->right, result);
-    result.push_back(node);
-    reverse_inorder_traversal_nodes(node->left, result);
-}
-
 void avl_init(AVLTree* tree) {
     tree->root = 0;
 }
@@ -203,12 +195,6 @@ const AVLNode* avl_search(const AVLTree* tree, const OrderRecord& key) {
 std::vector<AVLNode*> avl_inorder_nodes(const AVLTree* tree) {
     std::vector<AVLNode*> result;
     inorder_traversal_nodes(tree->root, result);
-    return result;
-}
-
-std::vector<AVLNode*> avl_reverse_inorder_nodes(const AVLTree* tree) {
-    std::vector<AVLNode*> result;
-    reverse_inorder_traversal_nodes(tree->root, result);
     return result;
 }
 
@@ -327,6 +313,3 @@ std::string avl_tree_to_string(const AVLTree* tree) {
     return out.str();
 }
 
-void avl_print_tree(const AVLTree* tree) {
-    std::cout << avl_tree_to_string(tree);
-}

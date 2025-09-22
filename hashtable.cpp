@@ -1,7 +1,6 @@
 ﻿#include "hashtable.hpp"
 
 #include <cstdint>
-#include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
@@ -129,15 +128,6 @@ void HashTable::clear() {
     delete[] table;
     table = new Cell[m_size];
     m_count = 0;
-}
-
-void HashTable::print(std::ostream& out) const {
-    out << toString();
-}
-
-void HashTable::saveToFile(const std::string& filename) const {
-    std::ofstream ofs(filename);
-    ofs << toString();
 }
 
 std::string HashTable::toString() const {
