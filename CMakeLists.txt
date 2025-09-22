@@ -35,6 +35,7 @@ add_executable(cursedarch_tests
     tests/hashtable_test.cpp
     tests/tree_test.cpp
     tests/integrator_test.cpp
+    tests/integrator_use_cases_test.cpp
 )
 
 target_link_libraries(cursedarch_tests
