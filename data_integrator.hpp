@@ -31,6 +31,9 @@ public:
 
     void clear();
 
+    bool loadFromFile(const std::string& path);
+    bool saveToFile(const std::string& path) const;
+
 private:
     DoublyLinkedList<DriverRecord> drivers_;
     DoublyLinkedList<OrderRecord>  orders_;
