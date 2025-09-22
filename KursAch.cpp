@@ -1,17 +1,8 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include <cstdio>
-
-void RegisterDoublyLinkedListTests();
-void RegisterHashTableTests();
-void RegisterAVLTreeTests();
-void RegisterIntegratorTests();
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
-    RegisterDoublyLinkedListTests();
-    RegisterHashTableTests();
-    RegisterAVLTreeTests();
-    RegisterIntegratorTests();
 
     auto* unit = ::testing::UnitTest::GetInstance();
     std::printf("total test suites: %d\n", unit->total_test_suite_count());

@@ -1,4 +1,4 @@
-﻿#include <algorithm>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -34,67 +34,9 @@ void RemoveIfExists(const std::filesystem::path& path) {
     std::filesystem::remove(path, ec);
 }
 
-class IntegratorAddsDriverAndOrder : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
+}  // namespace
 
-class IntegratorRejectsOrderWithoutDriver : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorCascadesDriverRemoval : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorMaintainsIndicesAfterOrderRemoval : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorUpdatesOrderKey : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorUpdateDriverKeepsData : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorLoadsConfigBasic : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorLoadsConfigMultiple : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorLoadsConfigNoOrders : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorSavesToFile : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorSavesAndReloadsModifications : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class IntegratorRejectsInvalidConfigFile : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-void IntegratorAddsDriverAndOrder::TestBody() {
+TEST(DataIntegratorTest, IntegratorAddsDriverAndOrder) {
     DataIntegrator integrator;
     DriverRecord driver{"TK-25-111111-2023", "Novikova Daria", "BMW", 10};
     OrderRecord order{driver.licenseNumber, "Ul. Lesnaya", "300 r.", "02 jan 2025"};
@@ -115,14 +57,14 @@ void IntegratorAddsDriverAndOrder::TestBody() {
     EXPECT_EQ(orders[0].address, order.address);
 }
 
-void IntegratorRejectsOrderWithoutDriver::TestBody() {
+TEST(DataIntegratorTest, IntegratorRejectsOrderWithoutDriver) {
     DataIntegrator integrator;
     OrderRecord order{"TK-25-333333-2025", "Ul. Mira", "500 r.", "05 feb 2025"};
     EXPECT_FALSE(integrator.addOrder(order));
     EXPECT_EQ(integrator.orderCount(), 0u);
 }
 
-void IntegratorCascadesDriverRemoval::TestBody() {
+TEST(DataIntegratorTest, IntegratorCascadesDriverRemoval) {
     DataIntegrator integrator;
     DriverRecord driver{"TK-25-444444-2025", "Melnikov Igor", "Audi", 5};
     OrderRecord o1{driver.licenseNumber, "Ul. Mira", "400 r.", "10 feb 2025"};
@@ -140,7 +82,7 @@ void IntegratorCascadesDriverRemoval::TestBody() {
     EXPECT_FALSE(integrator.hasOrder(o2));
 }
 
-void IntegratorMaintainsIndicesAfterOrderRemoval::TestBody() {
+TEST(DataIntegratorTest, IntegratorMaintainsIndicesAfterOrderRemoval) {
     DataIntegrator integrator;
     DriverRecord driver{"TK-25-555555-2025", "Sokolov Petr", "VW", 0};
     OrderRecord o1{driver.licenseNumber, "Street 1", "100 r.", "01 jan 2025"};
@@ -160,7 +102,7 @@ void IntegratorMaintainsIndicesAfterOrderRemoval::TestBody() {
     EXPECT_EQ(orders[1].address, o3.address);
 }
 
-void IntegratorUpdatesOrderKey::TestBody() {
+TEST(DataIntegratorTest, IntegratorUpdatesOrderKey) {
     DataIntegrator integrator;
     DriverRecord driver{"TK-25-666666-2025", "Alexeeva Olga", "Kia", 0};
     OrderRecord original{driver.licenseNumber, "Old Street", "150 r.", "01 mar 2025"};
@@ -178,7 +120,7 @@ void IntegratorUpdatesOrderKey::TestBody() {
     EXPECT_EQ(orders[0].cost, updated.cost);
 }
 
-void IntegratorUpdateDriverKeepsData::TestBody() {
+TEST(DataIntegratorTest, IntegratorUpdateDriverKeepsData) {
     DataIntegrator integrator;
     DriverRecord driver{"TK-25-777777-2025", "Smirnov Ilya", "Ford", 0};
     ASSERT_TRUE(integrator.addDriver(driver));
@@ -191,8 +133,7 @@ void IntegratorUpdateDriverKeepsData::TestBody() {
     EXPECT_EQ(stored->carBrand, "Tesla");
 }
 
-
-void IntegratorLoadsConfigBasic::TestBody() {
+TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
     DataIntegrator integrator;
     auto path = ConfigPath("valid_basic.cfg");
     ASSERT_TRUE(integrator.loadFromFile(path.string()));
@@ -213,7 +154,7 @@ void IntegratorLoadsConfigBasic::TestBody() {
     EXPECT_EQ(orders[0].date, "2024-12-01");
 }
 
-void IntegratorLoadsConfigMultiple::TestBody() {
+TEST(DataIntegratorTest, IntegratorLoadsConfigMultiple) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
 
@@ -240,7 +181,7 @@ void IntegratorLoadsConfigMultiple::TestBody() {
     EXPECT_EQ(orders201[0].address, "Mira 20");
 }
 
-void IntegratorLoadsConfigNoOrders::TestBody() {
+TEST(DataIntegratorTest, IntegratorLoadsConfigNoOrders) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string()));
 
@@ -259,7 +200,7 @@ void IntegratorLoadsConfigNoOrders::TestBody() {
     EXPECT_TRUE(integrator.ordersForDriver("TK-301").empty());
 }
 
-void IntegratorSavesToFile::TestBody() {
+TEST(DataIntegratorTest, IntegratorSavesToFile) {
     DataIntegrator integrator;
     DriverRecord first{"DL-001", "Alpha Tester", "Tesla", 1};
     DriverRecord second{"DL-002", "Beta Tester", "BMW", 2};
@@ -293,7 +234,7 @@ void IntegratorSavesToFile::TestBody() {
     RemoveIfExists(tempPath);
 }
 
-void IntegratorSavesAndReloadsModifications::TestBody() {
+TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
 
@@ -334,7 +275,7 @@ void IntegratorSavesAndReloadsModifications::TestBody() {
     RemoveIfExists(tempPath);
 }
 
-void IntegratorRejectsInvalidConfigFile::TestBody() {
+TEST(DataIntegratorTest, IntegratorRejectsInvalidConfigFile) {
     DataIntegrator integrator;
     DriverRecord existing{"SAFE-1", "Safe Driver", "VW", 3};
     ASSERT_TRUE(integrator.addDriver(existing));
@@ -348,34 +289,4 @@ void IntegratorRejectsInvalidConfigFile::TestBody() {
     auto stored = integrator.findDriver(existing.licenseNumber);
     ASSERT_TRUE(stored.has_value());
     EXPECT_EQ(stored->fio, existing.fio);
-}
-
-
-} // namespace
-
-void RegisterIntegratorTests() {
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorAddsDriverAndOrder", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorAddsDriverAndOrder; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorRejectsOrderWithoutDriver", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorRejectsOrderWithoutDriver; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorCascadesDriverRemoval", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorCascadesDriverRemoval; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorMaintainsIndicesAfterOrderRemoval", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorMaintainsIndicesAfterOrderRemoval; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorUpdatesOrderKey", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorUpdatesOrderKey; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorUpdateDriverKeepsData", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorUpdateDriverKeepsData; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorLoadsConfigBasic", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorLoadsConfigBasic; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorLoadsConfigMultiple", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorLoadsConfigMultiple; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorLoadsConfigNoOrders", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorLoadsConfigNoOrders; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorSavesToFile", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorSavesToFile; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorSavesAndReloadsModifications", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorSavesAndReloadsModifications; });
-    ::testing::RegisterTest("DataIntegratorTest", "IntegratorRejectsInvalidConfigFile", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new IntegratorRejectsInvalidConfigFile; });
 }
