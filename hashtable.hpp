@@ -2,7 +2,6 @@
 #define HASHTABLE_HPP
 
 #include <cstddef>
-#include <ostream>
 #include <string>
 
 struct Cell {
@@ -29,8 +28,6 @@ public:
     bool contains(const std::string& key) const;
 
     void clear();
-    void print(std::ostream& out) const;
-    void saveToFile(const std::string& filename) const;
     std::string toString() const;
 
     std::size_t capacity() const { return m_size; }

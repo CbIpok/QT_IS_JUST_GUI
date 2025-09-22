@@ -21,24 +21,6 @@ public:
 
 template <typename U>
 constexpr bool is_stream_insertable_v = is_stream_insertable<U>::value;
-
-inline bool is_prime(int value) {
-    if (value <= 1) return false;
-    if (value == 2) return true;
-    if (value % 2 == 0) return false;
-    for (int i = 3; i * i <= value; i += 2) {
-        if (value % i == 0) return false;
-    }
-    return true;
-}
-
-inline int largest_prime_less_than(int value) {
-    if (value <= 2) return 2;
-    for (int candidate = value - 1; candidate >= 2; --candidate) {
-        if (is_prime(candidate)) return candidate;
-    }
-    return 2;
-}
 }
 
 // Doubly-linked list that supports storing arbitrary values while
@@ -189,14 +171,6 @@ public:
             for (Node* cur = head_; cur; cur = cur->next) os << "[node] " ;
         }
         os << '\n';
-    }
-
-    template <typename U = T>
-    std::enable_if_t<std::is_integral_v<U>, DoublyLinkedList<int>> map_to_prev_prime() const {
-        DoublyLinkedList<int> out;
-        for (Node* cur = head_; cur; cur = cur->next)
-            out.push_back(detail::largest_prime_less_than(static_cast<int>(cur->data)));
-        return out;
     }
 
     T& at(size_t index) {

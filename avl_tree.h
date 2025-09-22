@@ -29,15 +29,12 @@ AVLNode* avl_search(AVLTree* tree, const OrderRecord& key);
 const AVLNode* avl_search(const AVLTree* tree, const OrderRecord& key);
 
 std::vector<AVLNode*> avl_inorder_nodes(const AVLTree* tree);
-std::vector<AVLNode*> avl_reverse_inorder_nodes(const AVLTree* tree);
-
 void avl_free(AVLTree* tree);
 
 bool avl_remove_index(AVLTree* tree, const OrderRecord& key, std::size_t listIndex);
 
 bool avl_replace_index(AVLTree* tree, const OrderRecord& key, std::size_t oldIndex, std::size_t newIndex);
 
-void avl_print_tree(const AVLTree* tree);
 std::string avl_tree_to_string(const AVLTree* tree);
 
 #endif
