@@ -1,24 +1,13 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include "hashtable.hpp"
 
-namespace {
-
-class HashTableTest_InsertSearchRemove : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class HashTableTest_InsertDuplicateAndRehash : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-void HashTableTest_InsertSearchRemove::TestBody() {
+TEST(HashTableTest, InsertSearchRemove) {
     HashTable table(3);
     EXPECT_TRUE(table.insert("TK-25-111111-2023", 10));
     EXPECT_TRUE(table.insert("TK-25-222222-2024", 20));
 
-    std::size_t listIndex = 0; int steps = 0;
+    std::size_t listIndex = 0;
+    int steps = 0;
     EXPECT_TRUE(table.search("TK-25-111111-2023", listIndex, steps));
     EXPECT_EQ(listIndex, 10u);
 
@@ -33,7 +22,7 @@ void HashTableTest_InsertSearchRemove::TestBody() {
     EXPECT_FALSE(table.search("TK-25-222222-2024", listIndex, steps));
 }
 
-void HashTableTest_InsertDuplicateAndRehash::TestBody() {
+TEST(HashTableTest, InsertDuplicateAndRehash) {
     HashTable table(3);
     EXPECT_TRUE(table.insert("TK-25-111111-2023", 0));
     EXPECT_FALSE(table.insert("TK-25-111111-2023", 1));
@@ -43,16 +32,8 @@ void HashTableTest_InsertDuplicateAndRehash::TestBody() {
         table.insert(key, static_cast<std::size_t>(i));
     }
 
-    std::size_t listIndex = 0; int steps = 0;
+    std::size_t listIndex = 0;
+    int steps = 0;
     EXPECT_TRUE(table.search("TK-25-111111-2023", listIndex, steps));
     EXPECT_EQ(listIndex, 0u);
-}
-
-} // namespace
-
-void RegisterHashTableTests() {
-    ::testing::RegisterTest("HashTableTest", "InsertSearchRemove", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new HashTableTest_InsertSearchRemove; });
-    ::testing::RegisterTest("HashTableTest", "InsertDuplicateAndRehash", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new HashTableTest_InsertDuplicateAndRehash; });
 }

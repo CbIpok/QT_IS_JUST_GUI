@@ -1,30 +1,9 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include "avl_tree.h"
 
-namespace {
-
-class AVLTreeTest_InsertAndSearch : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class AVLTreeTest_Remove : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class AVLTreeTest_RemoveIndex : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-class AVLTreeTest_InorderTraversal : public ::testing::Test {
-protected:
-    void TestBody() override;
-};
-
-void AVLTreeTest_InsertAndSearch::TestBody() {
-    AVLTree tree; avl_init(&tree);
+TEST(AVLTreeTest, InsertAndSearch) {
+    AVLTree tree;
+    avl_init(&tree);
     OrderRecord k{"TK-25-111111-2023", "Ul. Lesnaya", "300 r.", "02 jan 2025"};
     avl_insert(&tree, k, 10);
     AVLNode* node = avl_search(&tree, k);
@@ -34,8 +13,9 @@ void AVLTreeTest_InsertAndSearch::TestBody() {
     avl_free(&tree);
 }
 
-void AVLTreeTest_Remove::TestBody() {
-    AVLTree tree; avl_init(&tree);
+TEST(AVLTreeTest, Remove) {
+    AVLTree tree;
+    avl_init(&tree);
     OrderRecord k1{"TK-25-111111-2023", "Ul. Lesnaya", "300 r.", "02 jan 2025"};
     OrderRecord k2{"TK-25-222222-2024", "Ul. Lenina", "500 r.", "07 jan 2025"};
     avl_insert(&tree, k1, 1);
@@ -46,8 +26,9 @@ void AVLTreeTest_Remove::TestBody() {
     avl_free(&tree);
 }
 
-void AVLTreeTest_RemoveIndex::TestBody() {
-    AVLTree tree; avl_init(&tree);
+TEST(AVLTreeTest, RemoveIndex) {
+    AVLTree tree;
+    avl_init(&tree);
     OrderRecord k{"TK-25-111111-2023", "Ul. Lesnaya", "300 r.", "02 jan 2025"};
     avl_insert(&tree, k, 1);
     avl_insert(&tree, k, 2);
@@ -61,8 +42,9 @@ void AVLTreeTest_RemoveIndex::TestBody() {
     avl_free(&tree);
 }
 
-void AVLTreeTest_InorderTraversal::TestBody() {
-    AVLTree tree; avl_init(&tree);
+TEST(AVLTreeTest, InorderTraversal) {
+    AVLTree tree;
+    avl_init(&tree);
     avl_insert(&tree, {"b", "2", "1 r.", "01 jan 2025"}, 0);
     avl_insert(&tree, {"a", "1", "1 r.", "01 jan 2025"}, 1);
     avl_insert(&tree, {"c", "3", "1 r.", "01 jan 2025"}, 2);
@@ -72,17 +54,4 @@ void AVLTreeTest_InorderTraversal::TestBody() {
     EXPECT_EQ(nodes[1]->key.licenseNumber, "b");
     EXPECT_EQ(nodes[2]->key.licenseNumber, "c");
     avl_free(&tree);
-}
-
-} // namespace
-
-void RegisterAVLTreeTests() {
-    ::testing::RegisterTest("AVLTreeTest", "InsertAndSearch", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new AVLTreeTest_InsertAndSearch; });
-    ::testing::RegisterTest("AVLTreeTest", "Remove", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new AVLTreeTest_Remove; });
-    ::testing::RegisterTest("AVLTreeTest", "RemoveIndex", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new AVLTreeTest_RemoveIndex; });
-    ::testing::RegisterTest("AVLTreeTest", "InorderTraversal", nullptr, nullptr, __FILE__, __LINE__,
-        []() -> ::testing::Test* { return new AVLTreeTest_InorderTraversal; });
 }
