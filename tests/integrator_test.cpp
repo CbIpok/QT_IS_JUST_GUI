@@ -138,66 +138,81 @@ TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
     auto path = ConfigPath("valid_basic.cfg");
     ASSERT_TRUE(integrator.loadFromFile(path.string()));
 
-    EXPECT_EQ(integrator.driverCount(), 1u);
-    EXPECT_EQ(integrator.orderCount(), 1u);
+    EXPECT_EQ(integrator.driverCount(), 50u);
+    EXPECT_EQ(integrator.orderCount(), 50u);
 
-    auto driver = integrator.findDriver("TK-100");
-    ASSERT_TRUE(driver.has_value());
-    EXPECT_EQ(driver->fio, "Ivanov Petr");
-    EXPECT_EQ(driver->carBrand, "Toyota");
-    EXPECT_EQ(driver->originalLine, 5);
+    auto firstDriver = integrator.findDriver("VB-100");
+    ASSERT_TRUE(firstDriver.has_value());
+    EXPECT_EQ(firstDriver->fio, "Basic Driver 1");
+    EXPECT_EQ(firstDriver->carBrand, "Brand 1");
+    EXPECT_EQ(firstDriver->originalLine, 1);
 
-    auto orders = integrator.ordersForDriver("TK-100");
-    ASSERT_EQ(orders.size(), 1u);
-    EXPECT_EQ(orders[0].address, "Lenina 1");
-    EXPECT_EQ(orders[0].cost, "2500");
-    EXPECT_EQ(orders[0].date, "2024-12-01");
+    auto firstOrders = integrator.ordersForDriver("VB-100");
+    ASSERT_EQ(firstOrders.size(), 1u);
+    EXPECT_EQ(firstOrders[0].address, "Basic Street 1");
+    EXPECT_EQ(firstOrders[0].cost, "1000");
+    EXPECT_EQ(firstOrders[0].date, "2024-12-01");
+
+    auto lastDriver = integrator.findDriver("VB-149");
+    ASSERT_TRUE(lastDriver.has_value());
+    EXPECT_EQ(lastDriver->fio, "Basic Driver 50");
+    EXPECT_EQ(lastDriver->carBrand, "Brand 5");
+
+    auto lastOrders = integrator.ordersForDriver("VB-149");
+    ASSERT_EQ(lastOrders.size(), 1u);
+    EXPECT_EQ(lastOrders[0].address, "Basic Street 50");
+    EXPECT_EQ(lastOrders[0].cost, "1490");
 }
 
 TEST(DataIntegratorTest, IntegratorLoadsConfigMultiple) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
 
-    EXPECT_EQ(integrator.driverCount(), 2u);
-    EXPECT_EQ(integrator.orderCount(), 3u);
+    EXPECT_EQ(integrator.driverCount(), 50u);
+    EXPECT_EQ(integrator.orderCount(), 50u);
 
-    auto driver200 = integrator.findDriver("TK-200");
+    auto driver200 = integrator.findDriver("VM-200");
     ASSERT_TRUE(driver200.has_value());
-    EXPECT_EQ(driver200->fio, "Sidorov Ivan");
-    EXPECT_EQ(driver200->carBrand, "Lada");
+    EXPECT_EQ(driver200->fio, "Multiple Driver 1");
+    EXPECT_EQ(driver200->carBrand, "MultiBrand 1");
 
-    auto driver201 = integrator.findDriver("TK-201");
+    auto orders200 = integrator.ordersForDriver("VM-200");
+    ASSERT_EQ(orders200.size(), 3u);
+    EXPECT_EQ(orders200[0].address, "Multiple Hub 1A");
+    EXPECT_EQ(orders200[1].address, "Multiple Hub 1B");
+    EXPECT_EQ(orders200[2].address, "Multiple Hub 1C");
+
+    auto driver201 = integrator.findDriver("VM-201");
     ASSERT_TRUE(driver201.has_value());
-    EXPECT_EQ(driver201->fio, "Petrova Anna");
-    EXPECT_EQ(driver201->carBrand, "Skoda");
+    EXPECT_EQ(driver201->carBrand, "MultiBrand 2");
 
-    auto orders200 = integrator.ordersForDriver("TK-200");
-    ASSERT_EQ(orders200.size(), 2u);
-    EXPECT_EQ(orders200[0].address, "Nevsky 10");
-    EXPECT_EQ(orders200[1].address, "Sadovaya 33");
+    auto orders201 = integrator.ordersForDriver("VM-201");
+    ASSERT_EQ(orders201.size(), 2u);
+    EXPECT_EQ(orders201[0].address, "Multiple Hub 2A");
+    EXPECT_EQ(orders201[1].address, "Multiple Hub 2B");
 
-    auto orders201 = integrator.ordersForDriver("TK-201");
-    ASSERT_EQ(orders201.size(), 1u);
-    EXPECT_EQ(orders201[0].address, "Mira 20");
+    EXPECT_TRUE(integrator.ordersForDriver("VM-247").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VM-248").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VM-249").empty());
 }
 
 TEST(DataIntegratorTest, IntegratorLoadsConfigNoOrders) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string()));
 
-    EXPECT_EQ(integrator.driverCount(), 2u);
+    EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 0u);
 
-    auto driver300 = integrator.findDriver("TK-300");
+    auto driver300 = integrator.findDriver("VN-300");
     ASSERT_TRUE(driver300.has_value());
-    EXPECT_EQ(driver300->carBrand, "Hyundai");
+    EXPECT_EQ(driver300->carBrand, "CalmBrand 1");
 
-    auto driver301 = integrator.findDriver("TK-301");
-    ASSERT_TRUE(driver301.has_value());
-    EXPECT_EQ(driver301->fio, "Semenova Olga");
+    auto driver349 = integrator.findDriver("VN-349");
+    ASSERT_TRUE(driver349.has_value());
+    EXPECT_EQ(driver349->fio, "NoOrder Driver 50");
 
-    EXPECT_TRUE(integrator.ordersForDriver("TK-300").empty());
-    EXPECT_TRUE(integrator.ordersForDriver("TK-301").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VN-300").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VN-349").empty());
 }
 
 TEST(DataIntegratorTest, IntegratorSavesToFile) {
@@ -238,7 +253,7 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
 
-    auto driver = integrator.findDriver("TK-100");
+    auto driver = integrator.findDriver("VB-100");
     ASSERT_TRUE(driver.has_value());
     driver->carBrand = "UpdatedBrand";
     driver->originalLine = 15;
@@ -252,9 +267,10 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     updatedOrder.cost = "2700";
     EXPECT_TRUE(integrator.updateOrder(original, updatedOrder));
 
+    std::size_t initialOrderCount = integrator.orderCount();
     OrderRecord newOrder{driver->licenseNumber, "Tverskaya 5", "3100", "2025-01-15"};
     ASSERT_TRUE(integrator.addOrder(newOrder));
-    EXPECT_EQ(integrator.orderCount(), 2u);
+    EXPECT_EQ(integrator.orderCount(), initialOrderCount + 1);
 
     auto tempPath = TempFilePathForCurrentTest();
     RemoveIfExists(tempPath);
@@ -273,6 +289,60 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     EXPECT_NE(reloadedOrders.end(), std::find(reloadedOrders.begin(), reloadedOrders.end(), newOrder));
 
     RemoveIfExists(tempPath);
+}
+
+TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
+    DataIntegrator integrator;
+    DriverRecord alpha{"DL-HASH-1", "Alpha Tester", "Tesla", 1};
+    DriverRecord beta{"DL-HASH-2", "Beta Tester", "Audi", 2};
+    DriverRecord gamma{"DL-HASH-3", "Gamma Tester", "BMW", 3};
+
+    ASSERT_TRUE(integrator.addDriver(alpha));
+    ASSERT_TRUE(integrator.addDriver(beta));
+    ASSERT_TRUE(integrator.addDriver(gamma));
+
+    OrderRecord orderA{alpha.licenseNumber, "Alpha Street", "100", "2025-04-01"};
+    OrderRecord orderB{beta.licenseNumber, "Beta Street", "200", "2025-04-02"};
+    OrderRecord orderC{gamma.licenseNumber, "Gamma Street", "300", "2025-04-03"};
+    OrderRecord orderD{alpha.licenseNumber, "Alpha Avenue", "400", "2025-04-04"};
+
+    ASSERT_TRUE(integrator.addOrder(orderA));
+    ASSERT_TRUE(integrator.addOrder(orderB));
+    ASSERT_TRUE(integrator.addOrder(orderC));
+    ASSERT_TRUE(integrator.addOrder(orderD));
+
+    auto hashDump = integrator.hashTableAsText();
+    EXPECT_NE(hashDump.find("HashTable dump"), std::string::npos);
+    EXPECT_NE(hashDump.find(alpha.licenseNumber), std::string::npos);
+
+    auto treeDump = integrator.orderTreeAsText();
+    EXPECT_NE(treeDump.find(alpha.licenseNumber), std::string::npos);
+    EXPECT_NE(treeDump.find("|--"), std::string::npos);
+
+    auto basePath = TempFilePathForCurrentTest();
+    auto hashPath = basePath;
+    hashPath += ".hash";
+    auto treePath = basePath;
+    treePath += ".tree";
+
+    RemoveIfExists(hashPath);
+    RemoveIfExists(treePath);
+
+    ASSERT_TRUE(integrator.saveStructures(hashPath.string(), ""));
+    std::ifstream hashInput(hashPath);
+    ASSERT_TRUE(hashInput.is_open());
+    std::ostringstream hashBuffer;
+    hashBuffer << hashInput.rdbuf();
+    EXPECT_EQ(hashBuffer.str(), hashDump);
+    hashInput.close();
+
+    ASSERT_TRUE(integrator.saveStructures("", treePath.string()));
+    std::ifstream treeInput(treePath);
+    ASSERT_TRUE(treeInput.is_open());
+    std::ostringstream treeBuffer;
+    treeBuffer << treeInput.rdbuf();
+    EXPECT_EQ(treeBuffer.str(), treeDump);
+    treeInput.close();
 }
 
 TEST(DataIntegratorTest, IntegratorRejectsInvalidConfigFile) {

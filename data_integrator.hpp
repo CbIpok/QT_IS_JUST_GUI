@@ -33,6 +33,9 @@ public:
 
     bool loadFromFile(const std::string& path);
     bool saveToFile(const std::string& path) const;
+    std::string hashTableAsText() const;
+    std::string orderTreeAsText() const;
+    bool saveStructures(const std::string& hashTablePath, const std::string& treePath) const;
 
 private:
     DoublyLinkedList<DriverRecord> drivers_;

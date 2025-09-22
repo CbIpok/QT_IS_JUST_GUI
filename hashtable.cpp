@@ -4,6 +4,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <utility>
 
 Cell::Cell()
@@ -131,20 +132,33 @@ void HashTable::clear() {
 }
 
 void HashTable::print(std::ostream& out) const {
-    out << "Idx | Status   | Key | ListIndex\n";
-    for (std::size_t i = 0; i < m_size; ++i) {
-        out << i << "   | "
-            << (table[i].occupied ? "OCCUPIED" : "FREE    ");
-        if (table[i].occupied) {
-            out << " | " << table[i].key << " | " << table[i].index;
-        }
-        out << "\n";
-    }
+    out << toString();
 }
 
 void HashTable::saveToFile(const std::string& filename) const {
     std::ofstream ofs(filename);
-    print(ofs);
+    ofs << toString();
+}
+
+std::string HashTable::toString() const {
+    std::ostringstream out;
+    out << "HashTable dump\n";
+    out << "Capacity: " << m_size << "\n";
+    out << "Elements: " << m_count << "\n";
+    out << "------------------------------\n";
+    bool printedAny = false;
+    for (std::size_t i = 0; i < m_size; ++i) {
+        if (!table[i].occupied) {
+            continue;
+        }
+        printedAny = true;
+        out << "[" << i << "] occupied | key=\"" << table[i].key
+            << "\" | index=" << table[i].index << "\n";
+    }
+    if (!printedAny) {
+        out << "(no entries)\n";
+    }
+    return out.str();
 }
 
 std::size_t HashTable::hashPrimary(const std::string& key) const {
