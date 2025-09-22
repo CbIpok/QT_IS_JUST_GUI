@@ -47,5 +47,6 @@ TEST(HashTableTest, DumpToStringContainsEntries) {
     EXPECT_NE(dump.find("HashTable dump"), std::string::npos);
     EXPECT_NE(dump.find("HX-001"), std::string::npos);
     EXPECT_NE(dump.find("HX-002"), std::string::npos);
-    EXPECT_NE(dump.find("[0]"), std::string::npos);
+    EXPECT_EQ(dump.find("empty"), std::string::npos);
+    EXPECT_NE(dump.find("index=10"), std::string::npos);
 }

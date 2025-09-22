@@ -146,16 +146,17 @@ std::string HashTable::toString() const {
     out << "Capacity: " << m_size << "\n";
     out << "Elements: " << m_count << "\n";
     out << "------------------------------\n";
+    bool printedAny = false;
     for (std::size_t i = 0; i < m_size; ++i) {
-        out << "[" << i << "] ";
-        if (table[i].occupied) {
-            out << "occupied | key=\"" << table[i].key
-                << "\" | index=" << table[i].index;
+        if (!table[i].occupied) {
+            continue;
         }
-        else {
-            out << "empty";
-        }
-        out << "\n";
+        printedAny = true;
+        out << "[" << i << "] occupied | key=\"" << table[i].key
+            << "\" | index=" << table[i].index << "\n";
+    }
+    if (!printedAny) {
+        out << "(no entries)\n";
     }
     return out.str();
 }

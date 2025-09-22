@@ -335,7 +335,6 @@ TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
     hashBuffer << hashInput.rdbuf();
     EXPECT_EQ(hashBuffer.str(), hashDump);
     hashInput.close();
-    RemoveIfExists(hashPath);
 
     ASSERT_TRUE(integrator.saveStructures("", treePath.string()));
     std::ifstream treeInput(treePath);
@@ -344,7 +343,6 @@ TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
     treeBuffer << treeInput.rdbuf();
     EXPECT_EQ(treeBuffer.str(), treeDump);
     treeInput.close();
-    RemoveIfExists(treePath);
 }
 
 TEST(DataIntegratorTest, IntegratorRejectsInvalidConfigFile) {
