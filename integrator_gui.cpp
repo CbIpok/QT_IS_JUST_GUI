@@ -1,3 +1,7 @@
+#if defined(_WIN32) && !defined(WIN32)
+#define WIN32
+#endif
+
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
