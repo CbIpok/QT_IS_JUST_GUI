@@ -52,6 +52,7 @@ TEST(DataIntegratorUseCasesTest, UseCase02_AddNovikovaDriver) {
 
     EXPECT_TRUE(integrator.addDriver(driver));
     EXPECT_EQ(integrator.driverCount(), 1u);
+    EXPECT_EQ(integrator.orderCount(), 0u);
 
     auto stored = integrator.findDriver(driver.licenseNumber);
     ASSERT_TRUE(stored.has_value());
@@ -108,8 +109,10 @@ TEST(DataIntegratorUseCasesTest, UseCase05_DeleteDriverRemovesOrders) {
     EXPECT_TRUE(integrator.removeDriver(driver));
     EXPECT_EQ(integrator.driverCount(), 0u);
     EXPECT_EQ(integrator.orderCount(), 0u);
+    EXPECT_FALSE(integrator.hasDriver(driver.licenseNumber));
     EXPECT_FALSE(integrator.hasOrder(orderA));
     EXPECT_FALSE(integrator.hasOrder(orderB));
+    EXPECT_TRUE(integrator.ordersForDriver(driver.licenseNumber).empty());
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase06_AddOrderForExistingDriver) {
@@ -144,6 +147,7 @@ TEST(DataIntegratorUseCasesTest, UseCase08_EditOrderFields) {
     ASSERT_TRUE(integrator.addOrder(original));
 
     EXPECT_TRUE(integrator.updateOrder(original, updated));
+    EXPECT_EQ(integrator.orderCount(), 1u);
     EXPECT_FALSE(integrator.hasOrder(original));
     EXPECT_TRUE(integrator.hasOrder(updated));
 }
@@ -160,6 +164,7 @@ TEST(DataIntegratorUseCasesTest, UseCase09_ReassignOrderBetweenDrivers) {
 
     OrderRecord moved{driverB.licenseNumber, "Main Square", "100", "2025-06-01"};
     EXPECT_TRUE(integrator.updateOrder(original, moved));
+    EXPECT_EQ(integrator.orderCount(), 1u);
 
     EXPECT_TRUE(integrator.ordersForDriver(driverA.licenseNumber).empty());
     auto ordersB = integrator.ordersForDriver(driverB.licenseNumber);
@@ -180,6 +185,7 @@ TEST(DataIntegratorUseCasesTest, UseCase10_DeleteMiddleOrder) {
     ASSERT_TRUE(integrator.addOrder(order3));
 
     EXPECT_TRUE(integrator.removeOrder(order2));
+    EXPECT_EQ(integrator.orderCount(), 2u);
     EXPECT_FALSE(integrator.hasOrder(order2));
     EXPECT_TRUE(integrator.hasOrder(order1));
     EXPECT_TRUE(integrator.hasOrder(order3));
@@ -317,6 +323,7 @@ TEST(DataIntegratorUseCasesTest, UseCase21_UpdateOrderAndAddNewForDriver) {
 
     auto orders = integrator.ordersForDriver("VB-100");
     ASSERT_EQ(orders.size(), 2u);
+    EXPECT_EQ(integrator.orderCount(), 51u);
     EXPECT_TRUE(std::find(orders.begin(), orders.end(), modified) != orders.end());
     EXPECT_TRUE(std::find(orders.begin(), orders.end(), additional) != orders.end());
 }
@@ -449,9 +456,9 @@ void PrepareDiagnosticsData(DataIntegrator& integrator) {
     ASSERT_TRUE(integrator.addDriver(driver2));
     ASSERT_TRUE(integrator.addDriver(driver3));
 
-    ASSERT_TRUE(integrator.addOrder({driver1.licenseNumber, "Alpha Street", "100", "2025-04-01"}));
-    ASSERT_TRUE(integrator.addOrder({driver2.licenseNumber, "Beta Street", "200", "2025-04-02"}));
-    ASSERT_TRUE(integrator.addOrder({driver3.licenseNumber, "Gamma Street", "300", "2025-04-03"}));
+    ASSERT_TRUE(integrator.addOrder({driver1.licenseNumber, "Alpha", "100", "2025-04-01"}));
+    ASSERT_TRUE(integrator.addOrder({driver2.licenseNumber, "Beta", "200", "2025-04-02"}));
+    ASSERT_TRUE(integrator.addOrder({driver3.licenseNumber, "Gamma", "300", "2025-04-03"}));
     ASSERT_TRUE(integrator.addOrder({driver1.licenseNumber, "Alpha Avenue", "400", "2025-04-04"}));
 }
 
@@ -464,6 +471,8 @@ TEST(DataIntegratorUseCasesTest, UseCase28_ShowDiagnosticsDumps) {
     auto hashDump = integrator.hashTableAsText();
     EXPECT_NE(hashDump.find("HashTable dump"), std::string::npos);
     EXPECT_NE(hashDump.find("DL-HASH-1"), std::string::npos);
+    EXPECT_NE(hashDump.find("DL-HASH-2"), std::string::npos);
+    EXPECT_NE(hashDump.find("DL-HASH-3"), std::string::npos);
 
     auto treeDump = integrator.orderTreeAsText();
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
