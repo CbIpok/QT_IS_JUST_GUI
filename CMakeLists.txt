@@ -29,6 +29,17 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+FetchContent_Declare(
+    fltk
+    URL https://github.com/fltk/fltk/archive/refs/tags/release-1.3.8.tar.gz
+)
+set(FLTK_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(FLTK_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(FLTK_BUILD_FLUID OFF CACHE BOOL "" FORCE)
+set(FLTK_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(fltk)
+FetchContent_GetProperties(fltk)
+
 add_executable(cursedarch_tests
     KursAch.cpp
     tests/doubly_linked_list_test.cpp
@@ -45,3 +56,19 @@ target_link_libraries(cursedarch_tests
 )
 
 add_test(NAME cursedarch_tests COMMAND cursedarch_tests)
+
+add_executable(integrator_gui
+    integrator_gui.cpp
+)
+
+target_link_libraries(integrator_gui
+    PRIVATE
+        cursedarch
+        fltk
+)
+
+target_include_directories(integrator_gui
+    PRIVATE
+        ${fltk_SOURCE_DIR}
+        ${fltk_BINARY_DIR}
+)
