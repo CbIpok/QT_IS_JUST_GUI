@@ -469,15 +469,16 @@ TEST(DataIntegratorUseCasesTest, UseCase28_ShowDiagnosticsDumps) {
     PrepareDiagnosticsData(integrator);
 
     auto hashDump = integrator.hashTableAsText();
-    EXPECT_NE(hashDump.find("HashTable dump"), std::string::npos);
-    EXPECT_NE(hashDump.find("DL-HASH-1"), std::string::npos);
-    EXPECT_NE(hashDump.find("DL-HASH-2"), std::string::npos);
-    EXPECT_NE(hashDump.find("DL-HASH-3"), std::string::npos);
+    EXPECT_NE(hashDump.find("Водителей: 3"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Alpha Tester"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Beta Tester"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Gamma Tester"), std::string::npos);
 
     auto treeDump = integrator.orderTreeAsText();
-    EXPECT_NE(treeDump.find("|--"), std::string::npos);
+    EXPECT_NE(treeDump.find("Всего заказов: 4"), std::string::npos);
     EXPECT_NE(treeDump.find("DL-HASH-1"), std::string::npos);
-    EXPECT_NE(treeDump.find("[0,3]"), std::string::npos);
+    EXPECT_NE(treeDump.find("Alpha Avenue"), std::string::npos);
+    EXPECT_NE(treeDump.find("|--"), std::string::npos);
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase29_SaveDiagnosticsSeparately) {

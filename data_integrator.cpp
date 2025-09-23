@@ -2,8 +2,10 @@
 
 #include <cstdio>
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -69,6 +71,61 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
     out.cost = parts[2];
     out.date = parts[3];
     return true;
+}
+
+void appendOrderNodeDetailed(const AVLNode*                     node,
+                             const DoublyLinkedList<OrderRecord>& orders,
+                             std::ostringstream&                 out,
+                             const std::string&                  prefix,
+                             bool                                isTail,
+                             bool                                isRoot) {
+    if (!node) {
+        return;
+    }
+
+    out << prefix;
+    if (!isRoot) {
+        out << (isTail ? "`--" : "|--");
+    }
+    out << node->license << '\n';
+
+    std::string childPrefix = prefix;
+    if (!isRoot) {
+        childPrefix += (isTail ? "    " : "|   ");
+    }
+
+    if (node->listIndices.empty()) {
+        out << childPrefix << "• Заказов нет\n";
+    }
+    else {
+        for (std::list<std::size_t>::const_iterator it = node->listIndices.begin();
+             it != node->listIndices.end();
+             ++it) {
+            std::size_t listIndex = *it;
+            out << childPrefix << "• ";
+            if (listIndex < orders.size()) {
+                const OrderRecord& order = orders.at(listIndex);
+                out << order.address << " | " << order.cost << " | " << order.date;
+            }
+            else {
+                out << "(недопустимый индекс " << listIndex << ")";
+            }
+            out << '\n';
+        }
+    }
+
+    std::vector<const AVLNode*> children;
+    if (node->left) {
+        children.push_back(node->left);
+    }
+    if (node->right) {
+        children.push_back(node->right);
+    }
+
+    for (std::size_t i = 0; i < children.size(); ++i) {
+        bool childIsTail = (i + 1 == children.size());
+        appendOrderNodeDetailed(children[i], orders, out, childPrefix, childIsTail, false);
+    }
 }
 
 } // namespace
@@ -311,11 +368,52 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
 }
 
 std::string DataIntegrator::hashTableAsText() const {
-    return driverTable_.toString();
+    std::ostringstream out;
+    out << "Водителей: " << drivers_.size()
+        << " | Вместимость таблицы: " << driverTable_.capacity()
+        << " | Записей: " << driverTable_.size() << '\n';
+    out << "----------------------------------------\n";
+
+    std::vector<HashTable::Entry> entries = driverTable_.entries();
+    if (entries.empty()) {
+        out << "(пусто)\n";
+        return out.str();
+    }
+
+    for (const HashTable::Entry& entry : entries) {
+        if (entry.index >= drivers_.size()) {
+            continue;
+        }
+        const DriverRecord& driver = drivers_.at(entry.index);
+        std::size_t        orderCount = 0;
+        orders_.for_each([&](const OrderRecord& order, std::size_t) {
+            if (order.licenseNumber == driver.licenseNumber) {
+                ++orderCount;
+            }
+        });
+
+        out << '[' << entry.slot << "] " << driver.licenseNumber
+            << " | ФИО: " << driver.fio
+            << " | Авто: " << driver.carBrand
+            << " | Строка: " << driver.originalLine
+            << " | Заказов: " << orderCount << '\n';
+    }
+
+    return out.str();
 }
 
 std::string DataIntegrator::orderTreeAsText() const {
-    return avl_tree_to_string(&orderTree_);
+    if (!orderTree_.root) {
+        std::ostringstream empty;
+        empty << "Заказов нет\n";
+        return empty.str();
+    }
+
+    std::ostringstream out;
+    out << "Всего заказов: " << orders_.size() << '\n';
+    out << "----------------------------------------\n";
+    appendOrderNodeDetailed(orderTree_.root, orders_, out, "", true, true);
+    return out.str();
 }
 
 bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std::string& treePath) const {

@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 Cell::Cell()
     : occupied(false), key(), index(0) {}
@@ -149,6 +150,18 @@ std::string HashTable::toString() const {
         out << "(no entries)\n";
     }
     return out.str();
+}
+
+std::vector<HashTable::Entry> HashTable::entries() const {
+    std::vector<Entry> result;
+    result.reserve(m_count);
+    for (std::size_t i = 0; i < m_size; ++i) {
+        if (!table[i].occupied) {
+            continue;
+        }
+        result.push_back(Entry{i, table[i].key, table[i].index});
+    }
+    return result;
 }
 
 std::size_t HashTable::hashPrimary(const std::string& key) const {

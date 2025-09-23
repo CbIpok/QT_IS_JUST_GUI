@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 struct Cell {
     bool        occupied;
@@ -13,6 +14,12 @@ struct Cell {
 
 class HashTable {
 public:
+    struct Entry {
+        std::size_t slot;
+        std::string key;
+        std::size_t index;
+    };
+
     explicit HashTable(std::size_t initialSize, double maxLoad = 0.75);
     HashTable(const HashTable&) = delete;
     HashTable& operator=(const HashTable&) = delete;
@@ -29,6 +36,7 @@ public:
 
     void clear();
     std::string toString() const;
+    std::vector<Entry> entries() const;
 
     std::size_t capacity() const { return m_size; }
     std::size_t size() const { return m_count; }

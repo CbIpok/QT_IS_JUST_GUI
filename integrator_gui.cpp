@@ -7,6 +7,7 @@
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Group.H>
+#include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/fl_ask.H>
@@ -49,6 +50,10 @@ private:
     std::optional<DriverRecord> promptDriver(const DriverRecord* initial = nullptr);
     std::optional<OrderRecord>  promptOrder(const OrderRecord* initial = nullptr);
     std::optional<std::size_t>  promptIndexSelection(std::size_t count, const std::string& title);
+    std::optional<std::string>  promptFilePath(const char* dialogTitle,
+                                               const char* manualPrompt,
+                                               Fl_Native_File_Chooser::Type type,
+                                               bool allowEmpty = false);
 
     void handleLoad();
     void handleSave();
@@ -364,8 +369,42 @@ std::optional<std::size_t> IntegratorGUI::promptIndexSelection(std::size_t count
     }
 }
 
+std::optional<std::string> IntegratorGUI::promptFilePath(const char* dialogTitle,
+                                                         const char* manualPrompt,
+                                                         Fl_Native_File_Chooser::Type type,
+                                                         bool allowEmpty) {
+    Fl_Native_File_Chooser chooser(type);
+    chooser.title(dialogTitle);
+    if (type == Fl_Native_File_Chooser::BROWSE_SAVE_FILE) {
+        chooser.options(Fl_Native_File_Chooser::SAVEAS_CONFIRM);
+    }
+
+    int result = chooser.show();
+    if (result == 0) {
+        const char* filename = chooser.filename();
+        if (filename && *filename) {
+            return std::string(filename);
+        }
+        return allowEmpty ? std::optional<std::string>(std::string()) : std::nullopt;
+    }
+    if (result == 1) {
+        if (allowEmpty) {
+            return promptString(manualPrompt);
+        }
+        return promptNonEmpty(manualPrompt);
+    }
+
+    std::ostringstream error;
+    error << "Ошибка выбора файла: " << chooser.errmsg();
+    showError(error.str());
+    return std::nullopt;
+}
+
 void IntegratorGUI::handleLoad() {
-    auto path = promptString("Путь к файлу конфигурации:");
+    auto path = promptFilePath("Выбор файла конфигурации",
+                               "Введите путь к файлу конфигурации:",
+                               Fl_Native_File_Chooser::BROWSE_FILE,
+                               false);
     if (!path) return;
 
     if (integrator_.loadFromFile(*path)) {
@@ -379,7 +418,10 @@ void IntegratorGUI::handleLoad() {
 }
 
 void IntegratorGUI::handleSave() {
-    auto path = promptString("Путь для сохранения конфигурации:");
+    auto path = promptFilePath("Сохранение конфигурации",
+                               "Введите путь для сохранения конфигурации:",
+                               Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                               false);
     if (!path) return;
 
     if (integrator_.saveToFile(*path)) {
@@ -392,9 +434,15 @@ void IntegratorGUI::handleSave() {
 }
 
 void IntegratorGUI::handleSaveStructures() {
-    auto hashPath = promptString("Файл для хеш-таблицы (оставьте пустым, чтобы пропустить):");
+    auto hashPath = promptFilePath("Сохранение хеш-таблицы",
+                                   "Файл для хеш-таблицы (оставьте пустым, чтобы пропустить):",
+                                   Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                                   true);
     if (!hashPath) return;
-    auto treePath = promptString("Файл для дерева заказов (оставьте пустым, чтобы пропустить):");
+    auto treePath = promptFilePath("Сохранение дерева заказов",
+                                   "Файл для дерева заказов (оставьте пустым, чтобы пропустить):",
+                                   Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                                   true);
     if (!treePath) return;
 
     if (integrator_.saveStructures(*hashPath, *treePath)) {

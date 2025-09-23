@@ -314,11 +314,14 @@ TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
     ASSERT_TRUE(integrator.addOrder(orderD));
 
     auto hashDump = integrator.hashTableAsText();
-    EXPECT_NE(hashDump.find("HashTable dump"), std::string::npos);
-    EXPECT_NE(hashDump.find(alpha.licenseNumber), std::string::npos);
+    EXPECT_NE(hashDump.find("Водителей:"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Alpha Tester"), std::string::npos);
+    EXPECT_NE(hashDump.find("Заказов: 2"), std::string::npos);
 
     auto treeDump = integrator.orderTreeAsText();
-    EXPECT_NE(treeDump.find(alpha.licenseNumber), std::string::npos);
+    EXPECT_NE(treeDump.find("Всего заказов: 4"), std::string::npos);
+    EXPECT_NE(treeDump.find("Alpha Street"), std::string::npos);
+    EXPECT_NE(treeDump.find("Alpha Avenue"), std::string::npos);
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
 
     auto basePath = TempFilePathForCurrentTest();
