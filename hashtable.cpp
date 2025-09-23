@@ -157,17 +157,11 @@ std::size_t HashTable::hashPrimary(const std::string& key) const {
     std::uint64_t k = hasher(key);
     std::uint64_t h = k * MUL;
     std::size_t idx = static_cast<std::size_t>(h % m_size);
-    std::cout << "[Hash] primary(\"" << key << "\") = " << idx << "\n";
     return idx;
 }
 
 std::size_t HashTable::hashSecondary(std::size_t base, const std::string& key, std::size_t iteration) const {
     std::size_t idx = (base + iteration) % m_size;
-    if (iteration > 0) {
-        std::cout << "[Hash] secondary(\"" << key
-                  << "\", iter=" << iteration
-                  << ") = " << idx << "\n";
-    }
     return idx;
 }
 
