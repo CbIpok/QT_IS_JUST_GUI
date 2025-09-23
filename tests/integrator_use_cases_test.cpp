@@ -56,6 +56,10 @@ TEST(DataIntegratorUseCasesTest, UseCase02_AddNovikovaDriver) {
     auto stored = integrator.findDriver(driver.licenseNumber);
     ASSERT_TRUE(stored.has_value());
     EXPECT_EQ(*stored, driver);
+
+    auto storedByRecord = integrator.findDriver(driver);
+    ASSERT_TRUE(storedByRecord.has_value());
+    EXPECT_EQ(storedByRecord->fio, driver.fio);
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase03_DuplicateDriverRejected) {
@@ -77,11 +81,12 @@ TEST(DataIntegratorUseCasesTest, UseCase04_LoadBasicAndUpdateDriver) {
     auto record = integrator.findDriver("VB-100");
     ASSERT_TRUE(record.has_value());
 
-    DriverRecord updated = *record;
+    DriverRecord original = *record;
+    DriverRecord updated = original;
     updated.carBrand = "UpdatedBrand";
     updated.originalLine = 15;
 
-    EXPECT_TRUE(integrator.updateDriver("VB-100", updated));
+    EXPECT_TRUE(integrator.updateDriver(original, updated));
 
     auto stored = integrator.findDriver("VB-100");
     ASSERT_TRUE(stored.has_value());
@@ -100,7 +105,7 @@ TEST(DataIntegratorUseCasesTest, UseCase05_DeleteDriverRemovesOrders) {
     ASSERT_TRUE(integrator.addOrder(orderB));
     EXPECT_EQ(integrator.orderCount(), 2u);
 
-    EXPECT_TRUE(integrator.removeDriver(driver.licenseNumber));
+    EXPECT_TRUE(integrator.removeDriver(driver));
     EXPECT_EQ(integrator.driverCount(), 0u);
     EXPECT_EQ(integrator.orderCount(), 0u);
     EXPECT_FALSE(integrator.hasOrder(orderA));
@@ -292,10 +297,11 @@ TEST(DataIntegratorUseCasesTest, UseCase21_UpdateOrderAndAddNewForDriver) {
     auto driver = integrator.findDriver("VB-100");
     ASSERT_TRUE(driver.has_value());
 
-    DriverRecord updatedDriver = *driver;
+    DriverRecord originalDriver = *driver;
+    DriverRecord updatedDriver = originalDriver;
     updatedDriver.carBrand = "UpdatedBrand";
     updatedDriver.originalLine = 15;
-    EXPECT_TRUE(integrator.updateDriver("VB-100", updatedDriver));
+    EXPECT_TRUE(integrator.updateDriver(originalDriver, updatedDriver));
 
     OrderRecord originalOrder{"VB-100", "Basic Street 1", "1000", "2024-12-01"};
     OrderRecord modified{"VB-100", "Prospekt Mira 10", "2700", "2024-12-01"};
@@ -357,7 +363,7 @@ TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
 
     DriverRecord driver{"VB-100", "Basic Driver 1", "Brand 1", 1};
     DriverRecord updated{"VB-100", "Basic Driver 1", "UpdatedBrand", 15};
-    EXPECT_TRUE(integrator.updateDriver(driver.licenseNumber, updated));
+    EXPECT_TRUE(integrator.updateDriver(driver, updated));
 
     OrderRecord originalOrder{driver.licenseNumber, "Basic Street 1", "1000", "2024-12-01"};
     OrderRecord modifiedOrder{driver.licenseNumber, "Prospekt Mira 10", "2700", "2024-12-01"};
@@ -461,8 +467,8 @@ TEST(DataIntegratorUseCasesTest, UseCase28_ShowDiagnosticsDumps) {
 
     auto treeDump = integrator.orderTreeAsText();
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
-    EXPECT_NE(treeDump.find("Alpha Street"), std::string::npos);
-    EXPECT_NE(treeDump.find("Alpha Avenue"), std::string::npos);
+    EXPECT_NE(treeDump.find("DL-HASH-1"), std::string::npos);
+    EXPECT_NE(treeDump.find("[0,3]"), std::string::npos);
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase29_SaveDiagnosticsSeparately) {
