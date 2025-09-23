@@ -1,12 +1,9 @@
 ﻿#include "data_integrator.hpp"
 
-#include <algorithm>
 #include <cstdio>
 #include <fstream>
-#include <set>
 #include <stdexcept>
 #include <utility>
-#include <vector>
 
 namespace {
 
@@ -16,26 +13,30 @@ void trimCarriageReturn(std::string& value) {
     }
 }
 
-std::vector<std::string> splitLine(const std::string& line, char delimiter) {
-    std::vector<std::string> result;
-    std::string current;
-    for (char ch : line) {
-        if (ch == delimiter) {
-            result.push_back(current);
-            current.clear();
+bool splitLine(const std::string& line, char delimiter, std::string* fields, std::size_t expectedCount) {
+    std::size_t fieldIndex = 0;
+    std::size_t start = 0;
+    std::size_t length = line.size();
+    for (std::size_t i = 0; i <= length; ++i) {
+        bool isDelimiter = (i < length && line[i] == delimiter);
+        bool isEnd = (i == length);
+        if (!isDelimiter && !isEnd) {
+            continue;
         }
-        else {
-            current.push_back(ch);
+        if (fieldIndex >= expectedCount) {
+            return false;
         }
+        fields[fieldIndex] = line.substr(start, i - start);
+        ++fieldIndex;
+        start = i + 1;
     }
-    result.push_back(current);
-    return result;
+    return fieldIndex == expectedCount;
 }
 
 bool parseDriverLine(const std::string& line, DriverRecord& out) {
-    auto parts = splitLine(line, '|');
-    if (parts.size() != 4) return false;
-    for (auto& part : parts) trimCarriageReturn(part);
+    std::string parts[4];
+    if (!splitLine(line, '|', parts, 4)) return false;
+    for (std::size_t i = 0; i < 4; ++i) trimCarriageReturn(parts[i]);
 
     std::size_t consumed = 0;
     int originalLine = 0;
@@ -49,24 +50,24 @@ bool parseDriverLine(const std::string& line, DriverRecord& out) {
 
     if (parts[0].empty()) return false;
 
-    out.licenseNumber = std::move(parts[0]);
-    out.fio = std::move(parts[1]);
-    out.carBrand = std::move(parts[2]);
+    out.licenseNumber = parts[0];
+    out.fio = parts[1];
+    out.carBrand = parts[2];
     out.originalLine = originalLine;
     return true;
 }
 
 bool parseOrderLine(const std::string& line, OrderRecord& out) {
-    auto parts = splitLine(line, '|');
-    if (parts.size() != 4) return false;
-    for (auto& part : parts) trimCarriageReturn(part);
+    std::string parts[4];
+    if (!splitLine(line, '|', parts, 4)) return false;
+    for (std::size_t i = 0; i < 4; ++i) trimCarriageReturn(parts[i]);
 
     if (parts[0].empty()) return false;
 
-    out.licenseNumber = std::move(parts[0]);
-    out.address = std::move(parts[1]);
-    out.cost = std::move(parts[2]);
-    out.date = std::move(parts[3]);
+    out.licenseNumber = parts[0];
+    out.address = parts[1];
+    out.cost = parts[2];
+    out.date = parts[3];
     return true;
 }
 
@@ -81,6 +82,7 @@ DataIntegrator::DataIntegrator(std::size_t driverTableInitialSize, double maxLoa
 }
 
 bool DataIntegrator::addDriver(const DriverRecord& record) {
+    if (!validateDriverRecord(record)) return false;
     if (driverTable_.contains(record.licenseNumber)) return false;
 
     std::size_t index = drivers_.push_back(record);
@@ -92,16 +94,17 @@ bool DataIntegrator::addDriver(const DriverRecord& record) {
     return true;
 }
 
-bool DataIntegrator::removeDriver(const std::string& licenseNumber) {
-    auto driverIdxOpt = findDriverIndex(licenseNumber);
-    if (!driverIdxOpt) return false;
-    std::size_t driverIdx = *driverIdxOpt;
+bool DataIntegrator::removeDriver(const DriverRecord& record) {
+    std::optional<std::size_t> driverIdxOpt = findDriverIndex(record);
+    if (!driverIdxOpt.has_value()) return false;
+    std::size_t driverIdx = driverIdxOpt.value();
+    std::string licenseNumber = record.licenseNumber;
 
     for (std::size_t i = orders_.size(); i > 0; --i) {
         std::size_t orderIdx = i - 1;
         OrderRecord order = orders_.at(orderIdx);
         if (order.licenseNumber == licenseNumber) {
-            removeOrderByIndex(order, orderIdx);
+            removeOrderByIndex(order.licenseNumber, orderIdx);
         }
     }
 
@@ -118,14 +121,28 @@ bool DataIntegrator::removeDriver(const std::string& licenseNumber) {
     return true;
 }
 
-bool DataIntegrator::updateDriver(const std::string& licenseNumber, const DriverRecord& updated) {
-    auto driverIdxOpt = findDriverIndex(licenseNumber);
-    if (!driverIdxOpt) return false;
-    if (updated.licenseNumber != licenseNumber) return false;
+bool DataIntegrator::removeDriver(const std::string& licenseNumber) {
+    std::optional<DriverRecord> stored = findDriver(licenseNumber);
+    if (!stored.has_value()) return false;
+    return removeDriver(stored.value());
+}
 
-    DriverRecord& stored = drivers_.at(*driverIdxOpt);
+bool DataIntegrator::updateDriver(const DriverRecord& current, const DriverRecord& updated) {
+    if (!validateDriverRecord(updated)) return false;
+    if (current.licenseNumber != updated.licenseNumber) return false;
+
+    std::optional<std::size_t> driverIdxOpt = findDriverIndex(current);
+    if (!driverIdxOpt.has_value()) return false;
+
+    DriverRecord& stored = drivers_.at(driverIdxOpt.value());
     stored = updated;
     return true;
+}
+
+bool DataIntegrator::updateDriver(const std::string& licenseNumber, const DriverRecord& updated) {
+    std::optional<DriverRecord> stored = findDriver(licenseNumber);
+    if (!stored.has_value()) return false;
+    return updateDriver(stored.value(), updated);
 }
 
 
@@ -133,40 +150,47 @@ bool DataIntegrator::hasDriver(const std::string& licenseNumber) const {
     return driverTable_.contains(licenseNumber);
 }
 
+std::optional<DriverRecord> DataIntegrator::findDriver(const DriverRecord& record) const {
+    std::optional<std::size_t> driverIdxOpt = findDriverIndex(record);
+    if (!driverIdxOpt.has_value()) return std::nullopt;
+    return drivers_.at(driverIdxOpt.value());
+}
+
 std::optional<DriverRecord> DataIntegrator::findDriver(const std::string& licenseNumber) const {
-    auto driverIdxOpt = findDriverIndex(licenseNumber);
-    if (!driverIdxOpt) return std::nullopt;
-    return drivers_.at(*driverIdxOpt);
+    std::optional<std::size_t> driverIdxOpt = findDriverIndex(licenseNumber);
+    if (!driverIdxOpt.has_value()) return std::nullopt;
+    return drivers_.at(driverIdxOpt.value());
 }
 
 bool DataIntegrator::addOrder(const OrderRecord& record) {
+    if (!validateOrderRecord(record)) return false;
     if (!driverTable_.contains(record.licenseNumber)) return false;
 
     std::size_t index = orders_.push_back(record);
-    avl_insert(&orderTree_, record, index);
+    avl_insert(&orderTree_, record.licenseNumber, index);
     return true;
 }
 
 bool DataIntegrator::removeOrder(const OrderRecord& record) {
-    auto idxOpt = findOrderIndex(record, &record);
-    if (!idxOpt) return false;
-    removeOrderByIndex(record, *idxOpt);
+    std::optional<std::size_t> idxOpt = findOrderIndex(record, &record);
+    if (!idxOpt.has_value()) return false;
+    removeOrderByIndex(record.licenseNumber, idxOpt.value());
     return true;
 }
 
 bool DataIntegrator::updateOrder(const OrderRecord& current, const OrderRecord& updated) {
-    auto idxOpt = findOrderIndex(current, &current);
-    if (!idxOpt) return false;
+    std::optional<std::size_t> idxOpt = findOrderIndex(current, &current);
+    if (!idxOpt.has_value()) return false;
 
+    if (!validateOrderRecord(updated)) return false;
     if (!driverTable_.contains(updated.licenseNumber)) return false;
 
-    std::size_t idx = *idxOpt;
-    bool keyChanged = current.licenseNumber != updated.licenseNumber ||
-                      current.address != updated.address;
+    std::size_t idx = idxOpt.value();
+    bool licenseChanged = current.licenseNumber != updated.licenseNumber;
 
-    if (keyChanged) {
-        avl_remove_index(&orderTree_, current, idx);
-        avl_insert(&orderTree_, updated, idx);
+    if (licenseChanged) {
+        avl_remove_index(&orderTree_, current.licenseNumber, idx);
+        avl_insert(&orderTree_, updated.licenseNumber, idx);
     }
 
     orders_.at(idx) = updated;
@@ -174,7 +198,8 @@ bool DataIntegrator::updateOrder(const OrderRecord& current, const OrderRecord& 
 }
 
 bool DataIntegrator::hasOrder(const OrderRecord& record) const {
-    return findOrderIndex(record, &record).has_value();
+    std::optional<std::size_t> idxOpt = findOrderIndex(record, &record);
+    return idxOpt.has_value();
 }
 
 std::vector<OrderRecord> DataIntegrator::ordersForDriver(const std::string& licenseNumber) const {
@@ -208,16 +233,12 @@ bool DataIntegrator::loadFromFile(const std::string& path) {
     std::string line;
     std::getline(input, line); // consume the rest of the header line
 
-    std::vector<DriverRecord> parsedDrivers;
-    parsedDrivers.reserve(driverCount);
-    std::set<std::string> licenseNumbers;
-
+    DoublyLinkedList<DriverRecord> parsedDrivers;
     for (std::size_t i = 0; i < driverCount; ++i) {
         if (!std::getline(input, line)) return false;
         DriverRecord record{};
         if (!parseDriverLine(line, record)) return false;
-        if (!licenseNumbers.insert(record.licenseNumber).second) return false;
-        parsedDrivers.push_back(std::move(record));
+        parsedDrivers.push_back(record);
     }
 
     long long orderCountRaw = 0;
@@ -226,33 +247,48 @@ bool DataIntegrator::loadFromFile(const std::string& path) {
     std::size_t orderCount = static_cast<std::size_t>(orderCountRaw);
     std::getline(input, line);
 
-    std::vector<OrderRecord> parsedOrders;
-    parsedOrders.reserve(orderCount);
-
+    DoublyLinkedList<OrderRecord> parsedOrders;
     for (std::size_t i = 0; i < orderCount; ++i) {
         if (!std::getline(input, line)) return false;
         OrderRecord record{};
         if (!parseOrderLine(line, record)) return false;
-        if (licenseNumbers.find(record.licenseNumber) == licenseNumbers.end()) return false;
-        parsedOrders.push_back(std::move(record));
+        parsedOrders.push_back(record);
+    }
+
+    DataIntegrator temp(driverTable_.capacity());
+
+    bool driversLoaded = true;
+    parsedDrivers.for_each([&temp, &driversLoaded](const DriverRecord& driver, std::size_t) {
+        if (!driversLoaded) {
+            return;
+        }
+        if (!temp.addDriver(driver)) {
+            driversLoaded = false;
+        }
+    });
+    if (!driversLoaded) {
+        return false;
+    }
+
+    bool ordersLoaded = true;
+    parsedOrders.for_each([&temp, &ordersLoaded](const OrderRecord& order, std::size_t) {
+        if (!ordersLoaded) {
+            return;
+        }
+        if (!temp.addOrder(order)) {
+            ordersLoaded = false;
+        }
+    });
+    if (!ordersLoaded) {
+        return false;
     }
 
     clear();
-
-    for (const auto& driver : parsedDrivers) {
-        if (!addDriver(driver)) {
-            clear();
-            return false;
-        }
-    }
-
-    for (const auto& order : parsedOrders) {
-        if (!addOrder(order)) {
-            clear();
-            return false;
-        }
-    }
-
+    drivers_ = std::move(temp.drivers_);
+    orders_ = std::move(temp.orders_);
+    driverTable_ = std::move(temp.driverTable_);
+    orderTree_ = temp.orderTree_;
+    temp.orderTree_.root = nullptr;
     return true;
 }
 
@@ -315,15 +351,27 @@ std::optional<std::size_t> DataIntegrator::findDriverIndex(const std::string& li
     return index;
 }
 
+std::optional<std::size_t> DataIntegrator::findDriverIndex(const DriverRecord& record) const {
+    std::optional<std::size_t> indexOpt = findDriverIndex(record.licenseNumber);
+    if (!indexOpt.has_value()) return std::nullopt;
+    const DriverRecord& stored = drivers_.at(indexOpt.value());
+    if (stored == record) {
+        return indexOpt;
+    }
+    return std::nullopt;
+}
+
 std::optional<std::size_t> DataIntegrator::findOrderIndex(const OrderRecord& key, const OrderRecord* match) const {
-    const AVLNode* node = avl_search(&orderTree_, key);
+    const AVLNode* node = avl_search(&orderTree_, key.licenseNumber);
     if (!node) return std::nullopt;
     if (!match) {
         if (node->listIndices.empty()) return std::nullopt;
         return node->listIndices.front();
     }
 
-    for (std::size_t idx : node->listIndices) {
+    std::list<std::size_t>::const_iterator it = node->listIndices.begin();
+    while (it != node->listIndices.end()) {
+        std::size_t idx = *it;
         const OrderRecord& stored = orders_.at(idx);
         if (stored.licenseNumber == match->licenseNumber &&
             stored.address == match->address &&
@@ -331,20 +379,37 @@ std::optional<std::size_t> DataIntegrator::findOrderIndex(const OrderRecord& key
             stored.date == match->date) {
             return idx;
         }
+        ++it;
     }
     return std::nullopt;
 }
 
-void DataIntegrator::removeOrderByIndex(const OrderRecord& key, std::size_t index) {
+void DataIntegrator::removeOrderByIndex(const std::string& licenseNumber, std::size_t index) {
     DoublyLinkedList<OrderRecord>::SwapRemoveResult result;
     if (!orders_.remove_by_index(index, result)) return;
 
-    avl_remove_index(&orderTree_, key, index);
+    avl_remove_index(&orderTree_, licenseNumber, index);
 
     if (result.swapped && orders_.size() > index) {
         OrderRecord& movedOrder = orders_.at(index);
-        avl_replace_index(&orderTree_, movedOrder, result.swappedFromIndex, index);
+        avl_replace_index(&orderTree_, movedOrder.licenseNumber, result.swappedFromIndex, index);
     }
+}
+
+bool DataIntegrator::validateDriverRecord(const DriverRecord& record) const {
+    if (record.licenseNumber.empty()) return false;
+    if (record.fio.empty()) return false;
+    if (record.carBrand.empty()) return false;
+    if (record.originalLine < -1) return false;
+    return true;
+}
+
+bool DataIntegrator::validateOrderRecord(const OrderRecord& record) const {
+    if (record.licenseNumber.empty()) return false;
+    if (record.address.empty()) return false;
+    if (record.cost.empty()) return false;
+    if (record.date.empty()) return false;
+    return true;
 }
 
 

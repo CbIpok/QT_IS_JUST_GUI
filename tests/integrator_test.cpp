@@ -75,7 +75,7 @@ TEST(DataIntegratorTest, IntegratorCascadesDriverRemoval) {
     ASSERT_TRUE(integrator.addOrder(o2));
     EXPECT_EQ(integrator.orderCount(), 2u);
 
-    EXPECT_TRUE(integrator.removeDriver(driver.licenseNumber));
+    EXPECT_TRUE(integrator.removeDriver(driver));
     EXPECT_FALSE(integrator.hasDriver(driver.licenseNumber));
     EXPECT_EQ(integrator.orderCount(), 0u);
     EXPECT_FALSE(integrator.hasOrder(o1));
@@ -127,7 +127,7 @@ TEST(DataIntegratorTest, IntegratorUpdateDriverKeepsData) {
 
     DriverRecord updated = driver;
     updated.carBrand = "Tesla";
-    EXPECT_TRUE(integrator.updateDriver(driver.licenseNumber, updated));
+    EXPECT_TRUE(integrator.updateDriver(driver, updated));
     auto stored = integrator.findDriver(driver.licenseNumber);
     ASSERT_TRUE(stored.has_value());
     EXPECT_EQ(stored->carBrand, "Tesla");
@@ -253,13 +253,15 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
 
-    auto driver = integrator.findDriver("VB-100");
-    ASSERT_TRUE(driver.has_value());
-    driver->carBrand = "UpdatedBrand";
-    driver->originalLine = 15;
-    EXPECT_TRUE(integrator.updateDriver(driver->licenseNumber, *driver));
+    auto driverOpt = integrator.findDriver("VB-100");
+    ASSERT_TRUE(driverOpt.has_value());
+    DriverRecord originalDriver = *driverOpt;
+    DriverRecord updatedDriver = originalDriver;
+    updatedDriver.carBrand = "UpdatedBrand";
+    updatedDriver.originalLine = 15;
+    EXPECT_TRUE(integrator.updateDriver(originalDriver, updatedDriver));
 
-    auto existingOrders = integrator.ordersForDriver(driver->licenseNumber);
+    auto existingOrders = integrator.ordersForDriver(updatedDriver.licenseNumber);
     ASSERT_EQ(existingOrders.size(), 1u);
     OrderRecord original = existingOrders[0];
     OrderRecord updatedOrder = original;
@@ -268,7 +270,7 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     EXPECT_TRUE(integrator.updateOrder(original, updatedOrder));
 
     std::size_t initialOrderCount = integrator.orderCount();
-    OrderRecord newOrder{driver->licenseNumber, "Tverskaya 5", "3100", "2025-01-15"};
+    OrderRecord newOrder{updatedDriver.licenseNumber, "Tverskaya 5", "3100", "2025-01-15"};
     ASSERT_TRUE(integrator.addOrder(newOrder));
     EXPECT_EQ(integrator.orderCount(), initialOrderCount + 1);
 
@@ -278,12 +280,12 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
 
     DataIntegrator reloaded;
     ASSERT_TRUE(reloaded.loadFromFile(tempPath.string()));
-    auto reloadedDriver = reloaded.findDriver(driver->licenseNumber);
+    auto reloadedDriver = reloaded.findDriver(updatedDriver.licenseNumber);
     ASSERT_TRUE(reloadedDriver.has_value());
     EXPECT_EQ(reloadedDriver->carBrand, "UpdatedBrand");
     EXPECT_EQ(reloadedDriver->originalLine, 15);
 
-    auto reloadedOrders = reloaded.ordersForDriver(driver->licenseNumber);
+    auto reloadedOrders = reloaded.ordersForDriver(updatedDriver.licenseNumber);
     ASSERT_EQ(reloadedOrders.size(), 2u);
     EXPECT_NE(reloadedOrders.end(), std::find(reloadedOrders.begin(), reloadedOrders.end(), updatedOrder));
     EXPECT_NE(reloadedOrders.end(), std::find(reloadedOrders.begin(), reloadedOrders.end(), newOrder));

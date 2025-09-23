@@ -15,9 +15,12 @@ public:
     explicit DataIntegrator(std::size_t driverTableInitialSize = 32, double maxLoadFactor = 0.75);
 
     bool addDriver(const DriverRecord& record);
+    bool removeDriver(const DriverRecord& record);
     bool removeDriver(const std::string& licenseNumber);
+    bool updateDriver(const DriverRecord& current, const DriverRecord& updated);
     bool updateDriver(const std::string& licenseNumber, const DriverRecord& updated);
     bool hasDriver(const std::string& licenseNumber) const;
+    std::optional<DriverRecord> findDriver(const DriverRecord& record) const;
     std::optional<DriverRecord> findDriver(const std::string& licenseNumber) const;
 
     bool addOrder(const OrderRecord& record);
@@ -44,6 +47,9 @@ private:
     AVLTree                        orderTree_;
 
     std::optional<std::size_t> findDriverIndex(const std::string& licenseNumber) const;
+    std::optional<std::size_t> findDriverIndex(const DriverRecord& record) const;
     std::optional<std::size_t> findOrderIndex(const OrderRecord& key, const OrderRecord* match) const;
-    void removeOrderByIndex(const OrderRecord& key, std::size_t index);
+    void removeOrderByIndex(const std::string& licenseNumber, std::size_t index);
+    bool validateDriverRecord(const DriverRecord& record) const;
+    bool validateOrderRecord(const OrderRecord& record) const;
 };

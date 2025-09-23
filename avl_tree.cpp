@@ -49,17 +49,15 @@ static AVLNode* rotate_left(AVLNode* x) {
     return y;
 }
 
-static int key_compare(const OrderRecord& a, const OrderRecord& b) {
-    if (a.licenseNumber < b.licenseNumber) return -1;
-    if (a.licenseNumber > b.licenseNumber) return 1;
-    if (a.address < b.address) return -1;
-    if (a.address > b.address) return 1;
+static int key_compare(const std::string& a, const std::string& b) {
+    if (a < b) return -1;
+    if (a > b) return 1;
     return 0;
 }
 
-static AVLNode* create_node(const OrderRecord& key, std::size_t listIndex) {
+static AVLNode* create_node(const std::string& license, std::size_t listIndex) {
     AVLNode* node = new AVLNode;
-    node->key = key;
+    node->license = license;
     node->height = 1;
     node->left = 0;
     node->right = 0;
@@ -98,15 +96,15 @@ static AVLNode* min_node(AVLNode* node) {
     return node;
 }
 
-static AVLNode* insert_node(AVLNode* node, const OrderRecord& key, std::size_t listIndex) {
-    if (!node) return create_node(key, listIndex);
+static AVLNode* insert_node(AVLNode* node, const std::string& license, std::size_t listIndex) {
+    if (!node) return create_node(license, listIndex);
 
-    int cmp = key_compare(key, node->key);
+    int cmp = key_compare(license, node->license);
     if (cmp < 0) {
-        node->left = insert_node(node->left, key, listIndex);
+        node->left = insert_node(node->left, license, listIndex);
     }
     else if (cmp > 0) {
-        node->right = insert_node(node->right, key, listIndex);
+        node->right = insert_node(node->right, license, listIndex);
     }
     else {
         node->listIndices.push_back(listIndex);
@@ -116,15 +114,15 @@ static AVLNode* insert_node(AVLNode* node, const OrderRecord& key, std::size_t l
     return balance_node(node);
 }
 
-static AVLNode* remove_node(AVLNode* node, const OrderRecord& key, bool& removed) {
+static AVLNode* remove_node(AVLNode* node, const std::string& license, bool& removed) {
     if (!node) return 0;
 
-    int cmp = key_compare(key, node->key);
+    int cmp = key_compare(license, node->license);
     if (cmp < 0) {
-        node->left = remove_node(node->left, key, removed);
+        node->left = remove_node(node->left, license, removed);
     }
     else if (cmp > 0) {
-        node->right = remove_node(node->right, key, removed);
+        node->right = remove_node(node->right, license, removed);
     }
     else {
         removed = true;
@@ -140,19 +138,19 @@ static AVLNode* remove_node(AVLNode* node, const OrderRecord& key, bool& removed
         }
         bool dummy = false;
         AVLNode* temp = min_node(node->right);
-        node->key = temp->key;
+        node->license = temp->license;
         node->listIndices = temp->listIndices;
-        node->right = remove_node(node->right, temp->key, dummy);
+        node->right = remove_node(node->right, temp->license, dummy);
     }
 
     return balance_node(node);
 }
 
-static AVLNode* search_node(AVLNode* node, const OrderRecord& key) {
+static AVLNode* search_node(AVLNode* node, const std::string& license) {
     if (!node) return 0;
-    int cmp = key_compare(key, node->key);
-    if (cmp < 0) return search_node(node->left, key);
-    else if (cmp > 0) return search_node(node->right, key);
+    int cmp = key_compare(license, node->license);
+    if (cmp < 0) return search_node(node->left, license);
+    else if (cmp > 0) return search_node(node->right, license);
     else return node;
 }
 
@@ -174,22 +172,22 @@ void avl_init(AVLTree* tree) {
     tree->root = 0;
 }
 
-void avl_insert(AVLTree* tree, const OrderRecord& key, std::size_t listIndex) {
-    tree->root = insert_node(tree->root, key, listIndex);
+void avl_insert(AVLTree* tree, const std::string& license, std::size_t listIndex) {
+    tree->root = insert_node(tree->root, license, listIndex);
 }
 
-bool avl_remove(AVLTree* tree, const OrderRecord& key) {
+bool avl_remove(AVLTree* tree, const std::string& license) {
     bool removed = false;
-    tree->root = remove_node(tree->root, key, removed);
+    tree->root = remove_node(tree->root, license, removed);
     return removed;
 }
 
-AVLNode* avl_search(AVLTree* tree, const OrderRecord& key) {
-    return search_node(tree->root, key);
+AVLNode* avl_search(AVLTree* tree, const std::string& license) {
+    return search_node(tree->root, license);
 }
 
-const AVLNode* avl_search(const AVLTree* tree, const OrderRecord& key) {
-    return search_node(tree->root, key);
+const AVLNode* avl_search(const AVLTree* tree, const std::string& license) {
+    return search_node(tree->root, license);
 }
 
 std::vector<AVLNode*> avl_inorder_nodes(const AVLTree* tree) {
@@ -203,37 +201,40 @@ void avl_free(AVLTree* tree) {
     tree->root = 0;
 }
 
-bool avl_remove_index(AVLTree* tree, const OrderRecord& key, std::size_t listIndex) {
-    AVLNode* node = avl_search(tree, key);
+bool avl_remove_index(AVLTree* tree, const std::string& license, std::size_t listIndex) {
+    AVLNode* node = avl_search(tree, license);
     if (!node) {
         return false;
     }
 
-    auto it = std::find(node->listIndices.begin(), node->listIndices.end(), listIndex);
-    if (it == node->listIndices.end()) {
-        return false;
-    }
-
-    node->listIndices.erase(it);
-
-    if (node->listIndices.empty()) {
-        return avl_remove(tree, key);
-    }
-
-    return true;
-}
-
-bool avl_replace_index(AVLTree* tree, const OrderRecord& key, std::size_t oldIndex, std::size_t newIndex) {
-    AVLNode* node = avl_search(tree, key);
-    if (!node) {
-        return false;
-    }
-
-    for (std::size_t& idx : node->listIndices) {
-        if (idx == oldIndex) {
-            idx = newIndex;
+    std::list<std::size_t>::iterator it = node->listIndices.begin();
+    while (it != node->listIndices.end()) {
+        if (*it == listIndex) {
+            node->listIndices.erase(it);
+            if (node->listIndices.empty()) {
+                return avl_remove(tree, license);
+            }
             return true;
         }
+        ++it;
+    }
+
+    return false;
+}
+
+bool avl_replace_index(AVLTree* tree, const std::string& license, std::size_t oldIndex, std::size_t newIndex) {
+    AVLNode* node = avl_search(tree, license);
+    if (!node) {
+        return false;
+    }
+
+    std::list<std::size_t>::iterator it = node->listIndices.begin();
+    while (it != node->listIndices.end()) {
+        if (*it == oldIndex) {
+            *it = newIndex;
+            return true;
+        }
+        ++it;
     }
 
     return false;
@@ -255,16 +256,18 @@ void tree_to_stream(const AVLNode* node,
         out << (isTail ? "`--" : "|--");
     }
 
-    out << node->key.licenseNumber << " | "
-        << node->key.address << " | "
-        << node->key.cost << " | "
-        << node->key.date;
+    out << node->license;
 
     if (!node->listIndices.empty()) {
         out << " [";
-        for (std::size_t i = 0; i < node->listIndices.size(); ++i) {
-            out << node->listIndices[i];
-            if (i + 1 < node->listIndices.size()) {
+        std::size_t total = node->listIndices.size();
+        std::size_t position = 0;
+        std::list<std::size_t>::const_iterator it = node->listIndices.begin();
+        while (it != node->listIndices.end()) {
+            out << *it;
+            ++position;
+            ++it;
+            if (position < total) {
                 out << ",";
             }
         }
