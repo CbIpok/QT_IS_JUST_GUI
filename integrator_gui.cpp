@@ -30,8 +30,9 @@ namespace {
 
 class FlowGroup : public Fl_Group {
 public:
-    FlowGroup(int X, int Y, int W, int H)
-        : Fl_Group(X, Y, W, H) {}
+    FlowGroup(int X, int Y, int W, int rowHeight)
+        : Fl_Group(X, Y, W, rowHeight),
+          rowHeight_(rowHeight) {}
 
     int layout_for_width(int width) {
         int innerOffsetX = Fl::box_dx(box());
@@ -41,45 +42,38 @@ public:
 
         int cursorX = innerOffsetX;
         int cursorY = innerOffsetY;
-        int lineHeight = 0;
-        int maxY = innerOffsetY;
 
         for (int i = 0; i < children(); ++i) {
             Fl_Widget* child = this->child(i);
             if (!child->visible()) continue;
 
             int childW = child->w();
-            int childH = child->h();
 
             if (cursorX != innerOffsetX && cursorX + childW > innerOffsetX + innerWidth) {
                 cursorX = innerOffsetX;
-                cursorY += lineHeight;
-                lineHeight = 0;
+                cursorY += rowHeight_;
             }
 
-            child->resize(x() + cursorX, y() + cursorY, childW, childH);
-
+            child->resize(x() + cursorX, y() + cursorY, childW, rowHeight_);
             cursorX += childW;
-            if (childH > lineHeight) lineHeight = childH;
-            if (cursorY + childH > maxY) maxY = cursorY + childH;
         }
 
+        int contentHeight = rowHeight_;
         if (children() > 0) {
-            maxY = std::max(maxY, cursorY + lineHeight);
+            contentHeight = (cursorY - innerOffsetY) + rowHeight_;
         }
 
-        int usedHeight = children() == 0 ? 0 : (maxY - innerOffsetY);
-        int finalHeight = usedHeight + Fl::box_dh(box());
-        if (finalHeight < innerOffsetY + lineHeight + Fl::box_dh(box())) {
-            finalHeight = innerOffsetY + lineHeight + Fl::box_dh(box());
-        }
-        if (finalHeight < h()) {
-            finalHeight = std::max(finalHeight, innerOffsetY + lineHeight + Fl::box_dh(box()));
+        int finalHeight = contentHeight + Fl::box_dh(box());
+        if (finalHeight < rowHeight_) {
+            finalHeight = rowHeight_;
         }
 
         Fl_Group::resize(x(), y(), width, finalHeight);
         return h();
     }
+
+private:
+    int rowHeight_;
 };
 
 class ClickableLabel : public Fl_Box {
