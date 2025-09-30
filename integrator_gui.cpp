@@ -115,6 +115,15 @@ IntegratorGUI::IntegratorGUI()
       treeBuffer_(nullptr),
       hashStatusBox_(nullptr),
       treeStatusBox_(nullptr) {
+#if defined(_WIN32)
+    Fl::set_font(FL_HELVETICA, "Segoe UI");
+    Fl::set_font(FL_HELVETICA_BOLD, "Segoe UI Bold");
+    Fl::set_font(FL_COURIER, "Consolas");
+#else
+    Fl::set_font(FL_HELVETICA, "DejaVu Sans");
+    Fl::set_font(FL_HELVETICA_BOLD, "DejaVu Sans Bold");
+    Fl::set_font(FL_COURIER, "DejaVu Sans Mono");
+#endif
     const int windowWidth = 700;
     const int windowHeight = 700;
 
@@ -132,10 +141,10 @@ IntegratorGUI::IntegratorGUI()
     hashMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateDriver, this);
     hashMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackFindDriver, this);
     hashMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveDriver, this);
-    hashMenuBar_->add("Отч", 0, &IntegratorGUI::CallbackSaveStructures, this);
-    hashMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowDriverTable, this);
+    hashMenuBar_->add("Отч Табл", 0, &IntegratorGUI::CallbackShowDriverTable, this);
     hashMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateDriverTable, this);
-    hashMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearDriverTableOnly, this);
+    hashMenuBar_->add("Удал Табл", 0, &IntegratorGUI::CallbackClearDriverTableOnly, this);
+    hashMenuBar_->add("Отч Структ", 0, &IntegratorGUI::CallbackSaveStructures, this);
     hashMenuBar_->add("Очистить", 0, &IntegratorGUI::CallbackClear, this);
 
     hashStatusBox_ = new Fl_Box(10, menuBarHeight + 5, windowWidth - 20, 30);
@@ -173,11 +182,11 @@ IntegratorGUI::IntegratorGUI()
     treeMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateOrder, this);
     treeMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackCheckOrder, this);
     treeMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveOrder, this);
-    treeMenuBar_->add("Отч", 0, &IntegratorGUI::CallbackShowOrders, this);
-    treeMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowOrderTree, this);
+    treeMenuBar_->add("Отч Табл", 0, &IntegratorGUI::CallbackShowOrderTree, this);
     treeMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateOrderTree, this);
-    treeMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearOrderTreeOnly, this);
+    treeMenuBar_->add("Удал Табл", 0, &IntegratorGUI::CallbackClearOrderTreeOnly, this);
     treeMenuBar_->add("Заказы (Генерация отчётов)", 0, &IntegratorGUI::CallbackGenerateReport, this);
+    treeMenuBar_->add("Заказы водителя", 0, &IntegratorGUI::CallbackShowOrders, this);
 
     treeStatusBox_ = new Fl_Box(10, menuBarHeight + 5, windowWidth - 20, 30);
     treeStatusBox_->box(FL_THIN_DOWN_BOX);
