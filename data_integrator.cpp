@@ -1,11 +1,14 @@
 ﻿#include "data_integrator.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <iomanip>
 
 namespace {
 
@@ -128,17 +131,119 @@ void appendOrderNodeDetailed(const AVLNode*                     node,
     }
 }
 
+std::string normalizeDateKey(const std::string& value) {
+    if (value.empty()) {
+        return {};
+    }
+
+    std::tm parsed{};
+    std::istringstream iso(value);
+    iso >> std::get_time(&parsed, "%Y-%m-%d");
+    if (!iso.fail()) {
+        char buffer[32];
+        std::snprintf(buffer,
+                      sizeof(buffer),
+                      "%04d%02d%02d",
+                      parsed.tm_year + 1900,
+                      parsed.tm_mon + 1,
+                      parsed.tm_mday);
+        return std::string(buffer);
+    }
+
+    std::string digits;
+    digits.reserve(value.size());
+    for (char ch : value) {
+        if (std::isdigit(static_cast<unsigned char>(ch))) {
+            digits.push_back(ch);
+        }
+    }
+    if (digits.size() >= 8) {
+        if (digits.size() > 8) {
+            digits = digits.substr(digits.size() - 8);
+        }
+        return digits;
+    }
+    return value;
+}
+
+bool isDateWithinRange(const std::string& value,
+                       const std::string& from,
+                       const std::string& to) {
+    if (from.empty() && to.empty()) {
+        return true;
+    }
+
+    std::string valueKey = normalizeDateKey(value);
+    std::string fromKey = normalizeDateKey(from);
+    std::string toKey = normalizeDateKey(to);
+
+    if (!from.empty()) {
+        if (fromKey.empty()) {
+            if (value < from) return false;
+        }
+        else {
+            if (valueKey < fromKey) return false;
+        }
+    }
+
+    if (!to.empty()) {
+        if (toKey.empty()) {
+            if (value > to) return false;
+        }
+        else {
+            if (valueKey > toKey) return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 DataIntegrator::DataIntegrator(std::size_t driverTableInitialSize, double maxLoadFactor)
     : drivers_(),
       orders_(),
-      driverTable_(driverTableInitialSize, maxLoadFactor),
-      orderTree_{} {
+      driverTable_(std::max<std::size_t>(1u, driverTableInitialSize), maxLoadFactor),
+      orderTree_{},
+      driverTableReady_(false),
+      orderTreeReady_(false),
+      defaultDriverTableSize_(std::max<std::size_t>(1u, driverTableInitialSize)),
+      driverTableMaxLoadFactor_(maxLoadFactor) {
     avl_init(&orderTree_);
 }
 
+bool DataIntegrator::createDriverTable(std::size_t initialSize) {
+    std::size_t size = std::max<std::size_t>(1u, initialSize);
+    driverTable_ = HashTable(size, driverTableMaxLoadFactor_);
+    defaultDriverTableSize_ = size;
+    drivers_.clear();
+    driverTableReady_ = true;
+    return true;
+}
+
+bool DataIntegrator::createOrderTree() {
+    avl_free(&orderTree_);
+    avl_init(&orderTree_);
+    orders_.clear();
+    orderTreeReady_ = true;
+    return true;
+}
+
+void DataIntegrator::clearDriverTable() {
+    drivers_.clear();
+    driverTable_ = HashTable(defaultDriverTableSize_, driverTableMaxLoadFactor_);
+    driverTableReady_ = false;
+}
+
+void DataIntegrator::clearOrderTree() {
+    orders_.clear();
+    avl_free(&orderTree_);
+    avl_init(&orderTree_);
+    orderTreeReady_ = false;
+}
+
 bool DataIntegrator::addDriver(const DriverRecord& record) {
+    if (!driverTableReady_) return false;
     if (!validateDriverRecord(record)) return false;
     if (driverTable_.contains(record.licenseNumber)) return false;
 
@@ -152,17 +257,20 @@ bool DataIntegrator::addDriver(const DriverRecord& record) {
 }
 
 bool DataIntegrator::removeDriver(const DriverRecord& record) {
+    if (!driverTableReady_) return false;
     std::optional<std::size_t> driverIdxOpt = findDriverIndex(record);
     if (!driverIdxOpt.has_value()) return false;
     std::size_t driverIdx = driverIdxOpt.value();
     std::string licenseNumber = record.licenseNumber;
 
-    for (std::size_t i = orders_.size(); i > 0; --i) {
+    if (orderTreeReady_) {
+        for (std::size_t i = orders_.size(); i > 0; --i) {
         std::size_t orderIdx = i - 1;
         OrderRecord order = orders_.at(orderIdx);
         if (order.licenseNumber == licenseNumber) {
             removeOrderByIndex(order.licenseNumber, orderIdx);
         }
+    }
     }
 
     DoublyLinkedList<DriverRecord>::SwapRemoveResult result;
@@ -185,6 +293,7 @@ bool DataIntegrator::removeDriver(const std::string& licenseNumber) {
 }
 
 bool DataIntegrator::updateDriver(const DriverRecord& current, const DriverRecord& updated) {
+    if (!driverTableReady_) return false;
     if (!validateDriverRecord(updated)) return false;
     if (current.licenseNumber != updated.licenseNumber) return false;
 
@@ -204,22 +313,26 @@ bool DataIntegrator::updateDriver(const std::string& licenseNumber, const Driver
 
 
 bool DataIntegrator::hasDriver(const std::string& licenseNumber) const {
+    if (!driverTableReady_) return false;
     return driverTable_.contains(licenseNumber);
 }
 
 std::optional<DriverRecord> DataIntegrator::findDriver(const DriverRecord& record) const {
+    if (!driverTableReady_) return std::nullopt;
     std::optional<std::size_t> driverIdxOpt = findDriverIndex(record);
     if (!driverIdxOpt.has_value()) return std::nullopt;
     return drivers_.at(driverIdxOpt.value());
 }
 
 std::optional<DriverRecord> DataIntegrator::findDriver(const std::string& licenseNumber) const {
+    if (!driverTableReady_) return std::nullopt;
     std::optional<std::size_t> driverIdxOpt = findDriverIndex(licenseNumber);
     if (!driverIdxOpt.has_value()) return std::nullopt;
     return drivers_.at(driverIdxOpt.value());
 }
 
 bool DataIntegrator::addOrder(const OrderRecord& record) {
+    if (!driverTableReady_ || !orderTreeReady_) return false;
     if (!validateOrderRecord(record)) return false;
     if (!driverTable_.contains(record.licenseNumber)) return false;
 
@@ -229,6 +342,7 @@ bool DataIntegrator::addOrder(const OrderRecord& record) {
 }
 
 bool DataIntegrator::removeOrder(const OrderRecord& record) {
+    if (!orderTreeReady_) return false;
     std::optional<std::size_t> idxOpt = findOrderIndex(record, &record);
     if (!idxOpt.has_value()) return false;
     removeOrderByIndex(record.licenseNumber, idxOpt.value());
@@ -236,6 +350,7 @@ bool DataIntegrator::removeOrder(const OrderRecord& record) {
 }
 
 bool DataIntegrator::updateOrder(const OrderRecord& current, const OrderRecord& updated) {
+    if (!orderTreeReady_ || !driverTableReady_) return false;
     std::optional<std::size_t> idxOpt = findOrderIndex(current, &current);
     if (!idxOpt.has_value()) return false;
 
@@ -255,11 +370,13 @@ bool DataIntegrator::updateOrder(const OrderRecord& current, const OrderRecord& 
 }
 
 bool DataIntegrator::hasOrder(const OrderRecord& record) const {
+    if (!orderTreeReady_) return false;
     std::optional<std::size_t> idxOpt = findOrderIndex(record, &record);
     return idxOpt.has_value();
 }
 
 std::vector<OrderRecord> DataIntegrator::ordersForDriver(const std::string& licenseNumber) const {
+    if (!orderTreeReady_) return {};
     std::vector<OrderRecord> result;
     orders_.for_each([&](const OrderRecord& order, std::size_t) {
         if (order.licenseNumber == licenseNumber) {
@@ -270,11 +387,8 @@ std::vector<OrderRecord> DataIntegrator::ordersForDriver(const std::string& lice
 }
 
 void DataIntegrator::clear() {
-    drivers_.clear();
-    orders_.clear();
-    driverTable_.clear();
-    avl_free(&orderTree_);
-    avl_init(&orderTree_);
+    clearDriverTable();
+    clearOrderTree();
 }
 
 bool DataIntegrator::loadFromFile(const std::string& path) {
@@ -312,7 +426,9 @@ bool DataIntegrator::loadFromFile(const std::string& path) {
         parsedOrders.push_back(record);
     }
 
-    DataIntegrator temp(driverTable_.capacity());
+    DataIntegrator temp(driverTable_.capacity(), driverTableMaxLoadFactor_);
+    temp.createDriverTable(driverTable_.capacity());
+    temp.createOrderTree();
 
     bool driversLoaded = true;
     parsedDrivers.for_each([&temp, &driversLoaded](const DriverRecord& driver, std::size_t) {
@@ -345,7 +461,12 @@ bool DataIntegrator::loadFromFile(const std::string& path) {
     orders_ = std::move(temp.orders_);
     driverTable_ = std::move(temp.driverTable_);
     orderTree_ = temp.orderTree_;
+    driverTableReady_ = temp.driverTableReady_;
+    orderTreeReady_ = temp.orderTreeReady_;
+    defaultDriverTableSize_ = temp.defaultDriverTableSize_;
+    driverTableMaxLoadFactor_ = temp.driverTableMaxLoadFactor_;
     temp.orderTree_.root = nullptr;
+    temp.orderTreeReady_ = false;
     return true;
 }
 
@@ -368,6 +489,9 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
 }
 
 std::string DataIntegrator::hashTableAsText() const {
+    if (!driverTableReady_) {
+        return {};
+    }
     std::ostringstream out;
     out << "Водителей: " << drivers_.size()
         << " | Вместимость таблицы: " << driverTable_.capacity()
@@ -403,6 +527,9 @@ std::string DataIntegrator::hashTableAsText() const {
 }
 
 std::string DataIntegrator::orderTreeAsText() const {
+    if (!orderTreeReady_) {
+        return {};
+    }
     if (!orderTree_.root) {
         std::ostringstream empty;
         empty << "Заказов нет\n";
@@ -422,7 +549,13 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
         if (!hashOut.is_open()) {
             return false;
         }
-        hashOut << hashTableAsText();
+        std::string hashText = hashTableAsText();
+        if (hashText.empty()) {
+            hashOut << "Структура хеш-таблицы не создана\n";
+        }
+        else {
+            hashOut << hashText;
+        }
         if (!hashOut) {
             return false;
         }
@@ -433,7 +566,13 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
         if (!treeOut.is_open()) {
             return false;
         }
-        treeOut << orderTreeAsText();
+        std::string treeText = orderTreeAsText();
+        if (treeText.empty()) {
+            treeOut << "Структура дерева заказов не создана\n";
+        }
+        else {
+            treeOut << treeText;
+        }
         if (!treeOut) {
             return false;
         }
@@ -443,6 +582,7 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
 }
 
 std::optional<std::size_t> DataIntegrator::findDriverIndex(const std::string& licenseNumber) const {
+    if (!driverTableReady_) return std::nullopt;
     std::size_t index = 0;
     int steps = 0;
     if (!driverTable_.search(licenseNumber, index, steps)) return std::nullopt;
@@ -460,6 +600,7 @@ std::optional<std::size_t> DataIntegrator::findDriverIndex(const DriverRecord& r
 }
 
 std::optional<std::size_t> DataIntegrator::findOrderIndex(const OrderRecord& key, const OrderRecord* match) const {
+    if (!orderTreeReady_) return std::nullopt;
     const AVLNode* node = avl_search(&orderTree_, key.licenseNumber);
     if (!node) return std::nullopt;
     if (!match) {
@@ -483,6 +624,7 @@ std::optional<std::size_t> DataIntegrator::findOrderIndex(const OrderRecord& key
 }
 
 void DataIntegrator::removeOrderByIndex(const std::string& licenseNumber, std::size_t index) {
+    if (!orderTreeReady_) return;
     DoublyLinkedList<OrderRecord>::SwapRemoveResult result;
     if (!orders_.remove_by_index(index, result)) return;
 
@@ -508,6 +650,66 @@ bool DataIntegrator::validateOrderRecord(const OrderRecord& record) const {
     if (record.cost.empty()) return false;
     if (record.date.empty()) return false;
     return true;
+}
+
+std::vector<ReportEntry> DataIntegrator::generateReport(const std::string& licenseNumber,
+                                                        const std::string& carBrand,
+                                                        const std::string& address,
+                                                        const std::string& dateFrom,
+                                                        const std::string& dateTo) const {
+    std::vector<ReportEntry> result;
+    if (!driverTableReady_ || !orderTreeReady_) {
+        return result;
+    }
+    if (licenseNumber.empty() || carBrand.empty() || address.empty()) {
+        return result;
+    }
+
+    std::optional<DriverRecord> driverOpt = findDriver(licenseNumber);
+    if (!driverOpt.has_value()) {
+        return result;
+    }
+    const DriverRecord& driver = driverOpt.value();
+    if (driver.carBrand != carBrand) {
+        return result;
+    }
+
+    auto driverOrders = ordersForDriver(licenseNumber);
+    for (const OrderRecord& order : driverOrders) {
+        if (order.address != address) {
+            continue;
+        }
+        if (!isDateWithinRange(order.date, dateFrom, dateTo)) {
+            continue;
+        }
+        result.push_back(ReportEntry{driver.licenseNumber,
+                                     driver.fio,
+                                     driver.carBrand,
+                                     order.address,
+                                     order.cost,
+                                     order.date});
+    }
+
+    return result;
+}
+
+std::string DataIntegrator::formatReport(const std::vector<ReportEntry>& entries) const {
+    if (entries.empty()) {
+        return "Совпадений не найдено.\n";
+    }
+
+    std::ostringstream out;
+    out << "Номер лицензии | ФИО | Марка автомобиля | Адрес | Цена | Дата\n";
+    out << "--------------------------------------------------------------------------\n";
+    for (const ReportEntry& entry : entries) {
+        out << entry.licenseNumber << " | "
+            << entry.fio << " | "
+            << entry.carBrand << " | "
+            << entry.address << " | "
+            << entry.cost << " | "
+            << entry.date << '\n';
+    }
+    return out.str();
 }
 
 
