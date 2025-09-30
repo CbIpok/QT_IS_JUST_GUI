@@ -51,10 +51,6 @@ public:
             int childW = child->w();
             int childH = child->h();
 
-            if (childW > innerWidth && innerWidth > 0) {
-                childW = innerWidth;
-            }
-
             if (cursorX != innerOffsetX && cursorX + childW > innerOffsetX + innerWidth) {
                 cursorX = innerOffsetX;
                 cursorY += lineHeight;
@@ -290,24 +286,41 @@ IntegratorGUI::IntegratorGUI()
 
     const int labelHeight = 28;
 
-    auto labelWidth = [](const char* text) {
-        fl_font(FL_HELVETICA, 14);
-        return static_cast<int>(fl_width(text)) + 16;
+    const char* const allLabelTexts[] = {
+        "Загр. из файла",
+        "Выгр. в файл",
+        "Созд Табл",
+        "Отч Табл",
+        "Доб",
+        "Изм",
+        "Найти",
+        "Удалить",
+        "Отч",
+        "Очист",
+        "Заказы"
     };
 
-    auto separatorWidth = []() {
-        fl_font(FL_HELVETICA_BOLD, 14);
-        return static_cast<int>(fl_width("|")) + 4;
-    };
+    fl_font(FL_HELVETICA, 14);
+    int computedLabelWidth = 0;
+    for (const char* text : allLabelTexts) {
+        int width = static_cast<int>(fl_width(text)) + 16;
+        if (width > computedLabelWidth) {
+            computedLabelWidth = width;
+        }
+    }
+    const int labelWidth = computedLabelWidth;
+
+    fl_font(FL_HELVETICA_BOLD, 14);
+    const int separatorWidth = static_cast<int>(fl_width("|")) + 4;
 
     auto createLabel = [&](const char* label, Fl_Callback* cb) {
-        ClickableLabel* widget = new ClickableLabel(0, 0, labelWidth(label), labelHeight, label);
+        ClickableLabel* widget = new ClickableLabel(0, 0, labelWidth, labelHeight, label);
         widget->callback(cb, this);
         return widget;
     };
 
     auto createSeparator = [&]() {
-        Fl_Box* sep = new Fl_Box(0, 0, separatorWidth(), labelHeight, "|");
+        Fl_Box* sep = new Fl_Box(0, 0, separatorWidth, labelHeight, "|");
         sep->box(FL_FLAT_BOX);
         sep->align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
         sep->labelfont(FL_HELVETICA_BOLD);
