@@ -2,6 +2,10 @@
 #define WIN32
 #endif
 
+#if defined(_WIN32) && !defined(NOMINMAX)
+#define NOMINMAX
+#endif
+
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
 #include <FL/fl_draw.H>
