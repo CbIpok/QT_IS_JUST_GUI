@@ -4,13 +4,13 @@
 
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
-#include <FL/Fl_Button.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/fl_ask.H>
+#include <FL/fl_draw.H>
 
 #include <optional>
 #include <sstream>
@@ -20,6 +20,53 @@
 #include "data_integrator.hpp"
 
 namespace {
+
+class ClickableLabel : public Fl_Box {
+public:
+    ClickableLabel(int X, int Y, int W, int H, const char* L = nullptr)
+        : Fl_Box(X, Y, W, H, L), hovered_(false) {
+        box(FL_FLAT_BOX);
+        align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
+    }
+
+    void draw() override {
+        Fl_Color original = color();
+        if (hovered_) {
+            color(fl_rgb_color(230, 230, 230));
+            Fl_Box::draw();
+            color(original);
+        }
+        else {
+            Fl_Box::draw();
+        }
+    }
+
+    int handle(int event) override {
+        switch (event) {
+        case FL_ENTER:
+            hovered_ = true;
+            fl_cursor(FL_CURSOR_HAND);
+            redraw();
+            return 1;
+        case FL_LEAVE:
+            hovered_ = false;
+            fl_cursor(FL_CURSOR_DEFAULT);
+            redraw();
+            return 1;
+        case FL_PUSH:
+            if (callback()) {
+                do_callback();
+            }
+            return 1;
+        default:
+            break;
+        }
+        return Fl_Box::handle(event);
+    }
+
+private:
+    bool hovered_;
+};
 
 class IntegratorGUI {
 public:
@@ -104,20 +151,51 @@ IntegratorGUI::IntegratorGUI()
     const int windowWidth = 700;
     const int windowHeight = 700;
 
-    const int buttonWidth = 160;
-    const int buttonHeight = 28;
-    const int buttonSpacing = 10;
+    const int labelHeight = 28;
+    const int rowSpacing = 8;
+    const int sidePadding = 10;
     const int toolStripHeight = 140;
 
-    auto createToolbarButton = [&](Fl_Group* strip, int& x, int& y, const char* label, Fl_Callback* cb) {
-        if (x + buttonWidth > strip->w() - 10) {
-            x = 10;
-            y += buttonHeight + buttonSpacing;
+    auto createToolbarLabel = [&](Fl_Group* strip,
+                                  int& x,
+                                  int& y,
+                                  const char* label,
+                                  Fl_Callback* cb,
+                                  bool addSeparator) {
+        fl_font(FL_HELVETICA, 14);
+        const int padding = 6;
+        const int separatorWidth = static_cast<int>(fl_width("|")) + 2;
+        int width = static_cast<int>(fl_width(label)) + padding;
+        if (x + width > strip->w() - sidePadding) {
+            x = sidePadding;
+            y += labelHeight + rowSpacing;
         }
-        Fl_Button* button = new Fl_Button(strip->x() + x, strip->y() + y, buttonWidth, buttonHeight, label);
-        button->callback(cb, this);
-        x += buttonWidth + buttonSpacing;
-        return button;
+        auto* clickable =
+            new ClickableLabel(strip->x() + x, strip->y() + y, width, labelHeight, label);
+        clickable->labelfont(FL_HELVETICA);
+        clickable->labelsize(14);
+        clickable->callback(cb, this);
+        clickable->color(strip->color());
+        x += width;
+        if (addSeparator) {
+            bool wrapped = false;
+            if (x + separatorWidth > strip->w() - sidePadding) {
+                x = sidePadding;
+                y += labelHeight + rowSpacing;
+                wrapped = true;
+            }
+            if (!wrapped) {
+                auto* separator =
+                    new Fl_Box(strip->x() + x, strip->y() + y, separatorWidth, labelHeight, "|");
+                separator->labelfont(FL_HELVETICA);
+                separator->labelsize(14);
+                separator->color(strip->color());
+                separator->box(FL_NO_BOX);
+                separator->align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
+                x += separatorWidth;
+            }
+        }
+        return clickable;
     };
 
     hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (хеш-таблица)");
@@ -128,17 +206,17 @@ IntegratorGUI::IntegratorGUI()
     hashToolStrip_->color(fl_rgb_color(245, 245, 245));
     hashToolStrip_->begin();
 
-    int hashButtonX = 10;
-    int hashButtonY = 10;
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Загрузить...", &IntegratorGUI::CallbackLoad);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить...", &IntegratorGUI::CallbackSave);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Очистить", &IntegratorGUI::CallbackClear);
+    int hashLabelX = sidePadding;
+    int hashLabelY = 10;
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Загрузить...", &IntegratorGUI::CallbackLoad, true);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Сохранить...", &IntegratorGUI::CallbackSave, true);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures, true);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Очистить", &IntegratorGUI::CallbackClear, true);
 
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Добавить водителя", &IntegratorGUI::CallbackAddDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Изменить водителя", &IntegratorGUI::CallbackUpdateDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Удалить водителя", &IntegratorGUI::CallbackRemoveDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Найти водителя", &IntegratorGUI::CallbackFindDriver);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Добавить", &IntegratorGUI::CallbackAddDriver, true);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Изменить", &IntegratorGUI::CallbackUpdateDriver, true);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Удалить", &IntegratorGUI::CallbackRemoveDriver, true);
+    createToolbarLabel(hashToolStrip_, hashLabelX, hashLabelY, "Найти", &IntegratorGUI::CallbackFindDriver, false);
 
     hashToolStrip_->end();
 
@@ -174,13 +252,13 @@ IntegratorGUI::IntegratorGUI()
     treeToolStrip_->color(fl_rgb_color(245, 245, 245));
     treeToolStrip_->begin();
 
-    int treeButtonX = 10;
-    int treeButtonY = 10;
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Добавить заказ", &IntegratorGUI::CallbackAddOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Изменить заказ", &IntegratorGUI::CallbackUpdateOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Удалить заказ", &IntegratorGUI::CallbackRemoveOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Заказы водителя", &IntegratorGUI::CallbackShowOrders);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Проверить заказ", &IntegratorGUI::CallbackCheckOrder);
+    int treeLabelX = sidePadding;
+    int treeLabelY = 10;
+    createToolbarLabel(treeToolStrip_, treeLabelX, treeLabelY, "Добавить", &IntegratorGUI::CallbackAddOrder, true);
+    createToolbarLabel(treeToolStrip_, treeLabelX, treeLabelY, "Изменить", &IntegratorGUI::CallbackUpdateOrder, true);
+    createToolbarLabel(treeToolStrip_, treeLabelX, treeLabelY, "Удалить", &IntegratorGUI::CallbackRemoveOrder, true);
+    createToolbarLabel(treeToolStrip_, treeLabelX, treeLabelY, "Заказы", &IntegratorGUI::CallbackShowOrders, true);
+    createToolbarLabel(treeToolStrip_, treeLabelX, treeLabelY, "Проверить", &IntegratorGUI::CallbackCheckOrder, false);
 
     treeToolStrip_->end();
 
