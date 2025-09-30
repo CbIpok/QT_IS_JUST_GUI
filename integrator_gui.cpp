@@ -46,6 +46,7 @@ private:
     void updateStatus(const std::string& message);
     void showInfo(const std::string& message);
     void showError(const std::string& message);
+    void showTextWindow(const std::string& title, const std::string& content);
 
     std::optional<std::string> promptNonEmpty(const char* prompt, const std::string& initial = "");
     std::optional<std::string> promptString(const char* prompt, const std::string& initial = "");
@@ -62,6 +63,9 @@ private:
     void handleSave();
     void handleSaveStructures();
     void handleClear();
+    void handleCreateDriverTable();
+    void handleClearDriverTableOnly();
+    void handleShowDriverTable();
 
     void handleAddDriver();
     void handleUpdateDriver();
@@ -73,11 +77,18 @@ private:
     void handleRemoveOrder();
     void handleShowOrders();
     void handleCheckOrder();
+    void handleCreateOrderTree();
+    void handleClearOrderTreeOnly();
+    void handleShowOrderTree();
+    void handleGenerateReport();
 
     static void CallbackLoad(Fl_Widget*, void*);
     static void CallbackSave(Fl_Widget*, void*);
     static void CallbackSaveStructures(Fl_Widget*, void*);
     static void CallbackClear(Fl_Widget*, void*);
+    static void CallbackCreateDriverTable(Fl_Widget*, void*);
+    static void CallbackClearDriverTableOnly(Fl_Widget*, void*);
+    static void CallbackShowDriverTable(Fl_Widget*, void*);
     static void CallbackAddDriver(Fl_Widget*, void*);
     static void CallbackUpdateDriver(Fl_Widget*, void*);
     static void CallbackRemoveDriver(Fl_Widget*, void*);
@@ -87,6 +98,10 @@ private:
     static void CallbackRemoveOrder(Fl_Widget*, void*);
     static void CallbackShowOrders(Fl_Widget*, void*);
     static void CallbackCheckOrder(Fl_Widget*, void*);
+    static void CallbackCreateOrderTree(Fl_Widget*, void*);
+    static void CallbackClearOrderTreeOnly(Fl_Widget*, void*);
+    static void CallbackShowOrderTree(Fl_Widget*, void*);
+    static void CallbackGenerateReport(Fl_Widget*, void*);
 };
 
 IntegratorGUI::IntegratorGUI()
@@ -134,6 +149,9 @@ IntegratorGUI::IntegratorGUI()
     createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить...", &IntegratorGUI::CallbackSave);
     createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures);
     createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Очистить", &IntegratorGUI::CallbackClear);
+    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Создать таблицу", &IntegratorGUI::CallbackCreateDriverTable);
+    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Удалить таблицу", &IntegratorGUI::CallbackClearDriverTableOnly);
+    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Показать таблицу", &IntegratorGUI::CallbackShowDriverTable);
 
     createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Добавить водителя", &IntegratorGUI::CallbackAddDriver);
     createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Изменить водителя", &IntegratorGUI::CallbackUpdateDriver);
@@ -181,6 +199,10 @@ IntegratorGUI::IntegratorGUI()
     createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Удалить заказ", &IntegratorGUI::CallbackRemoveOrder);
     createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Заказы водителя", &IntegratorGUI::CallbackShowOrders);
     createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Проверить заказ", &IntegratorGUI::CallbackCheckOrder);
+    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Создать дерево", &IntegratorGUI::CallbackCreateOrderTree);
+    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Удалить дерево", &IntegratorGUI::CallbackClearOrderTreeOnly);
+    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Показать дерево", &IntegratorGUI::CallbackShowOrderTree);
+    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Сформировать отчёт", &IntegratorGUI::CallbackGenerateReport);
 
     treeToolStrip_->end();
 
@@ -242,11 +264,23 @@ void IntegratorGUI::refreshDataViews() {
     if (hashStatusBox_) hashStatusBox_->copy_label(status.str().c_str());
     if (treeStatusBox_) treeStatusBox_->copy_label(status.str().c_str());
 
-    std::string hashText = integrator_.hashTableAsText();
-    std::string treeText = integrator_.orderTreeAsText();
+    std::string hashText;
+    if (!integrator_.hasDriverTable()) {
+        hashText = "Нет таблицы Водителей";
+    }
+    else {
+        hashText = integrator_.hashTableAsText();
+        if (hashText.empty()) hashText = "<пусто>";
+    }
 
-    if (hashText.empty()) hashText = "<пусто>";
-    if (treeText.empty()) treeText = "<пусто>";
+    std::string treeText;
+    if (!integrator_.hasOrderTree()) {
+        treeText = "Нет таблицы Заказов";
+    }
+    else {
+        treeText = integrator_.orderTreeAsText();
+        if (treeText.empty()) treeText = "<пусто>";
+    }
 
     hashBuffer_->text(hashText.c_str());
     treeBuffer_->text(treeText.c_str());
@@ -265,6 +299,38 @@ void IntegratorGUI::showInfo(const std::string& message) {
 void IntegratorGUI::showError(const std::string& message) {
     fl_message_title("Ошибка");
     fl_alert("%s", message.c_str());
+}
+
+void IntegratorGUI::showTextWindow(const std::string& title, const std::string& content) {
+    Fl_Double_Window* window = new Fl_Double_Window(640, 480, title.c_str());
+    window->begin();
+    Fl_Text_Display* display = new Fl_Text_Display(10, 10, 620, 430);
+    display->box(FL_DOWN_BOX);
+    display->textfont(FL_COURIER);
+    display->textsize(13);
+    Fl_Text_Buffer* buffer = new Fl_Text_Buffer();
+    buffer->text(content.c_str());
+    display->buffer(buffer);
+    window->resizable(display);
+    window->end();
+    struct TextWindowContext {
+        Fl_Text_Display* display;
+        Fl_Text_Buffer*  buffer;
+    };
+    auto* context = new TextWindowContext{display, buffer};
+    window->callback([](Fl_Widget* widget, void* data) {
+        auto* ctx = static_cast<TextWindowContext*>(data);
+        if (ctx) {
+            if (ctx->display) {
+                ctx->display->buffer(nullptr);
+            }
+            delete ctx->buffer;
+            delete ctx;
+        }
+        delete widget;
+    }, context);
+    window->set_non_modal();
+    window->show();
 }
 
 std::optional<std::string> IntegratorGUI::promptNonEmpty(const char* prompt, const std::string& initial) {
@@ -487,7 +553,50 @@ void IntegratorGUI::handleClear() {
     }
 }
 
+void IntegratorGUI::handleCreateDriverTable() {
+    int defaultSize = static_cast<int>(integrator_.driverTableCapacity());
+    auto sizeOpt = promptInt("Начальный размер хеш-таблицы:", defaultSize, 1);
+    if (!sizeOpt) return;
+
+    if (integrator_.createDriverTable(static_cast<std::size_t>(*sizeOpt))) {
+        refreshDataViews();
+        updateStatus("Хеш-таблица создана.");
+    }
+    else {
+        showError("Не удалось создать хеш-таблицу.");
+    }
+}
+
+void IntegratorGUI::handleClearDriverTableOnly() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
+    int choice = fl_choice("Удалить хеш-таблицу водителей?", "Отмена", "Удалить", nullptr);
+    if (choice == 1) {
+        integrator_.clearDriverTable();
+        refreshDataViews();
+        updateStatus("Хеш-таблица удалена.");
+    }
+}
+
+void IntegratorGUI::handleShowDriverTable() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
+    std::string text = integrator_.hashTableAsText();
+    if (text.empty()) {
+        text = "<пусто>";
+    }
+    showTextWindow("Хеш-таблица водителей", text);
+}
+
 void IntegratorGUI::handleAddDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана. Создайте таблицу перед добавлением водителей.");
+        return;
+    }
     auto record = promptDriver();
     if (!record) return;
 
@@ -501,6 +610,10 @@ void IntegratorGUI::handleAddDriver() {
 }
 
 void IntegratorGUI::handleUpdateDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана. Создайте таблицу перед изменением водителей.");
+        return;
+    }
     auto license = promptNonEmpty("Номер водителя для изменения:");
     if (!license) return;
 
@@ -528,6 +641,10 @@ void IntegratorGUI::handleUpdateDriver() {
 }
 
 void IntegratorGUI::handleRemoveDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана. Создайте таблицу перед удалением водителей.");
+        return;
+    }
     auto license = promptNonEmpty("Номер водителя для удаления:");
     if (!license) return;
 
@@ -546,6 +663,10 @@ void IntegratorGUI::handleRemoveDriver() {
 }
 
 void IntegratorGUI::handleFindDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
     auto license = promptNonEmpty("Номер водителя для поиска:");
     if (!license) return;
 
@@ -564,6 +685,10 @@ void IntegratorGUI::handleFindDriver() {
 }
 
 void IntegratorGUI::handleAddOrder() {
+    if (!integrator_.hasDriverTable() || !integrator_.hasOrderTree()) {
+        showError("Создайте хеш-таблицу и дерево заказов перед добавлением заказов.");
+        return;
+    }
     auto record = promptOrder();
     if (!record) return;
 
@@ -577,6 +702,14 @@ void IntegratorGUI::handleAddOrder() {
 }
 
 void IntegratorGUI::handleUpdateOrder() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
     auto license = promptNonEmpty("Номер водителя для выбора заказа:");
     if (!license) return;
 
@@ -610,6 +743,10 @@ void IntegratorGUI::handleUpdateOrder() {
 }
 
 void IntegratorGUI::handleRemoveOrder() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
     auto license = promptNonEmpty("Номер водителя для удаления заказа:");
     if (!license) return;
 
@@ -645,6 +782,10 @@ void IntegratorGUI::handleRemoveOrder() {
 }
 
 void IntegratorGUI::handleShowOrders() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
     auto license = promptNonEmpty("Номер водителя для отображения заказов:");
     if (!license) return;
 
@@ -663,6 +804,10 @@ void IntegratorGUI::handleShowOrders() {
 }
 
 void IntegratorGUI::handleCheckOrder() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
     auto record = promptOrder();
     if (!record) return;
 
@@ -672,6 +817,63 @@ void IntegratorGUI::handleCheckOrder() {
     else {
         showInfo("Такого заказа нет.");
     }
+}
+
+void IntegratorGUI::handleCreateOrderTree() {
+    if (integrator_.createOrderTree()) {
+        refreshDataViews();
+        updateStatus("Дерево заказов создано.");
+    }
+    else {
+        showError("Не удалось создать дерево заказов.");
+    }
+}
+
+void IntegratorGUI::handleClearOrderTreeOnly() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    int choice = fl_choice("Удалить дерево заказов?", "Отмена", "Удалить", nullptr);
+    if (choice == 1) {
+        integrator_.clearOrderTree();
+        refreshDataViews();
+        updateStatus("Дерево заказов удалено.");
+    }
+}
+
+void IntegratorGUI::handleShowOrderTree() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    std::string text = integrator_.orderTreeAsText();
+    if (text.empty()) {
+        text = "<пусто>";
+    }
+    showTextWindow("Дерево заказов", text);
+}
+
+void IntegratorGUI::handleGenerateReport() {
+    if (!integrator_.hasDriverTable() || !integrator_.hasOrderTree()) {
+        showError("Создайте обе структуры данных перед формированием отчёта.");
+        return;
+    }
+
+    auto license = promptNonEmpty("Номер лицензии для отчёта:");
+    if (!license) return;
+    auto carBrand = promptNonEmpty("Марка автомобиля:");
+    if (!carBrand) return;
+    auto address = promptNonEmpty("Адрес заказа:");
+    if (!address) return;
+    auto fromDate = promptString("Начальная дата (включительно, можно оставить пустым):", "");
+    if (!fromDate) return;
+    auto toDate = promptString("Конечная дата (включительно, можно оставить пустым):", "");
+    if (!toDate) return;
+
+    auto entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
+    std::string text = integrator_.formatReport(entries);
+    showTextWindow("Отчёт по водителю", text);
 }
 
 void IntegratorGUI::CallbackLoad(Fl_Widget*, void* data) {
@@ -688,6 +890,18 @@ void IntegratorGUI::CallbackSaveStructures(Fl_Widget*, void* data) {
 
 void IntegratorGUI::CallbackClear(Fl_Widget*, void* data) {
     static_cast<IntegratorGUI*>(data)->handleClear();
+}
+
+void IntegratorGUI::CallbackCreateDriverTable(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleCreateDriverTable();
+}
+
+void IntegratorGUI::CallbackClearDriverTableOnly(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleClearDriverTableOnly();
+}
+
+void IntegratorGUI::CallbackShowDriverTable(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowDriverTable();
 }
 
 void IntegratorGUI::CallbackAddDriver(Fl_Widget*, void* data) {
@@ -724,6 +938,22 @@ void IntegratorGUI::CallbackShowOrders(Fl_Widget*, void* data) {
 
 void IntegratorGUI::CallbackCheckOrder(Fl_Widget*, void* data) {
     static_cast<IntegratorGUI*>(data)->handleCheckOrder();
+}
+
+void IntegratorGUI::CallbackCreateOrderTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleCreateOrderTree();
+}
+
+void IntegratorGUI::CallbackClearOrderTreeOnly(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleClearOrderTreeOnly();
+}
+
+void IntegratorGUI::CallbackShowOrderTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowOrderTree();
+}
+
+void IntegratorGUI::CallbackGenerateReport(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleGenerateReport();
 }
 
 } // namespace
