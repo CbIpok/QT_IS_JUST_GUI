@@ -1,16 +1,90 @@
-﻿#include "data_integrator.hpp"
+#include "data_integrator.hpp"
+
+#if defined(_MSC_VER)
+#    pragma execution_character_set("utf-8")
+#endif
 
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 #include <iomanip>
 
+#if defined(_WIN32)
+#    ifndef NOMINMAX
+#        define NOMINMAX
+#    endif
+#    include <windows.h>
+#endif
+
 namespace {
+
+#if defined(_WIN32)
+std::string ansiToUtf8(const std::string& input) {
+    if (input.empty()) {
+        return {};
+    }
+
+    int wideLength = MultiByteToWideChar(CP_ACP, 0, input.c_str(), -1, nullptr, 0);
+    if (wideLength <= 0) {
+        return input;
+    }
+
+    std::wstring wide(static_cast<std::size_t>(wideLength), L'\0');
+    MultiByteToWideChar(CP_ACP, 0, input.c_str(), -1, wide.data(), wideLength);
+
+    int utf8Length = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (utf8Length <= 0) {
+        return input;
+    }
+
+    std::string utf8(static_cast<std::size_t>(utf8Length), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), -1, utf8.data(), utf8Length, nullptr, nullptr);
+    if (!utf8.empty() && utf8.back() == '\0') {
+        utf8.pop_back();
+    }
+    return utf8;
+}
+
+std::string utf8ToAnsi(const std::string& input) {
+    if (input.empty()) {
+        return {};
+    }
+
+    int wideLength = MultiByteToWideChar(CP_UTF8, 0, input.c_str(), -1, nullptr, 0);
+    if (wideLength <= 0) {
+        return input;
+    }
+
+    std::wstring wide(static_cast<std::size_t>(wideLength), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, input.c_str(), -1, wide.data(), wideLength);
+
+    int ansiLength = WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (ansiLength <= 0) {
+        return input;
+    }
+
+    std::string ansi(static_cast<std::size_t>(ansiLength), '\0');
+    WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, ansi.data(), ansiLength, nullptr, nullptr);
+    if (!ansi.empty() && ansi.back() == '\0') {
+        ansi.pop_back();
+    }
+    return ansi;
+}
+#else
+inline std::string ansiToUtf8(const std::string& input) {
+    return input;
+}
+
+inline std::string utf8ToAnsi(const std::string& input) {
+    return input;
+}
+#endif
 
 void trimCarriageReturn(std::string& value) {
     if (!value.empty() && value.back() == '\r') {
@@ -55,9 +129,9 @@ bool parseDriverLine(const std::string& line, DriverRecord& out) {
 
     if (parts[0].empty()) return false;
 
-    out.licenseNumber = parts[0];
-    out.fio = parts[1];
-    out.carBrand = parts[2];
+    out.licenseNumber = ansiToUtf8(parts[0]);
+    out.fio = ansiToUtf8(parts[1]);
+    out.carBrand = ansiToUtf8(parts[2]);
     out.originalLine = originalLine;
     return true;
 }
@@ -69,10 +143,10 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
 
     if (parts[0].empty()) return false;
 
-    out.licenseNumber = parts[0];
-    out.address = parts[1];
-    out.cost = parts[2];
-    out.date = parts[3];
+    out.licenseNumber = ansiToUtf8(parts[0]);
+    out.address = ansiToUtf8(parts[1]);
+    out.cost = ansiToUtf8(parts[2]);
+    out.date = ansiToUtf8(parts[3]);
     return true;
 }
 
@@ -481,12 +555,14 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
 
     output << "drivers " << drivers_.size() << '\n';
     drivers_.for_each([&](const DriverRecord& driver, std::size_t) {
-        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '|' << driver.originalLine << '\n';
+        output << utf8ToAnsi(driver.licenseNumber) << '|' << utf8ToAnsi(driver.fio) << '|' << utf8ToAnsi(driver.carBrand) << '|'
+               << driver.originalLine << '\n';
     });
 
     output << "orders " << orders_.size() << '\n';
     orders_.for_each([&](const OrderRecord& order, std::size_t) {
-        output << order.licenseNumber << '|' << order.address << '|' << order.cost << '|' << order.date << '\n';
+        output << utf8ToAnsi(order.licenseNumber) << '|' << utf8ToAnsi(order.address) << '|' << utf8ToAnsi(order.cost) << '|'
+               << utf8ToAnsi(order.date) << '\n';
     });
 
     output.flush();
@@ -556,10 +632,10 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
         }
         std::string hashText = hashTableAsText();
         if (hashText.empty()) {
-            hashOut << "Структура хеш-таблицы не создана\n";
+            hashOut << utf8ToAnsi("Структура хеш-таблицы не создана\n");
         }
         else {
-            hashOut << hashText;
+            hashOut << utf8ToAnsi(hashText);
         }
         if (!hashOut) {
             return false;
@@ -573,10 +649,10 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
         }
         std::string treeText = orderTreeAsText();
         if (treeText.empty()) {
-            treeOut << "Структура дерева заказов не создана\n";
+            treeOut << utf8ToAnsi("Структура дерева заказов не создана\n");
         }
         else {
-            treeOut << treeText;
+            treeOut << utf8ToAnsi(treeText);
         }
         if (!treeOut) {
             return false;

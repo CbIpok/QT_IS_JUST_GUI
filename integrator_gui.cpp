@@ -2,6 +2,10 @@
 #define WIN32
 #endif
 
+#if defined(_MSC_VER)
+#    pragma execution_character_set("utf-8")
+#endif
+
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Double_Window.H>
