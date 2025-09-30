@@ -7,6 +7,8 @@
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Input.H>
+#include <FL/Fl_Choice.H>
 #include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
@@ -15,11 +17,89 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "data_integrator.hpp"
 
 namespace {
+
+class ToolStrip : public Fl_Group {
+public:
+    ToolStrip(int X, int Y, int W, int H,
+              int padding = 10,
+              int spacing = 8,
+              int itemHeight = 28)
+        : Fl_Group(X, Y, W, H),
+          padding_(padding),
+          spacing_(spacing),
+          itemHeight_(itemHeight),
+          currentX_(padding),
+          currentY_(padding) {
+        box(FL_THIN_UP_BOX);
+        color(fl_rgb_color(245, 245, 245));
+    }
+
+    Fl_Button* addButton(const char* label, Fl_Callback* cb, void* data, int width = 160) {
+        auto [itemX, itemY] = reserveSlot(width, itemHeight_);
+        auto* button = new Fl_Button(itemX, itemY, width, itemHeight_, label);
+        button->callback(cb, data);
+        return button;
+    }
+
+    Fl_Box* addLabel(const char* label, int width = 120) {
+        auto [itemX, itemY] = reserveSlot(width, itemHeight_);
+        auto* box = new Fl_Box(itemX, itemY, width, itemHeight_, label);
+        box->box(FL_FLAT_BOX);
+        box->labelfont(FL_HELVETICA_BOLD);
+        box->labelsize(12);
+        box->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
+        return box;
+    }
+
+    Fl_Input* addTextBox(const char* tooltip = nullptr, int width = 160) {
+        auto [itemX, itemY] = reserveSlot(width, itemHeight_);
+        auto* input = new Fl_Input(itemX, itemY, width, itemHeight_);
+        if (tooltip) input->tooltip(tooltip);
+        return input;
+    }
+
+    Fl_Choice* addComboBox(const std::vector<std::string>& items, int width = 160) {
+        auto [itemX, itemY] = reserveSlot(width, itemHeight_);
+        auto* choice = new Fl_Choice(itemX, itemY, width, itemHeight_);
+        for (const auto& item : items) {
+            choice->add(item.c_str());
+        }
+        return choice;
+    }
+
+    Fl_Box* addSeparator(int width = 12) {
+        auto [itemX, itemY] = reserveSlot(width, itemHeight_);
+        auto* separator = new Fl_Box(itemX, itemY, width, itemHeight_);
+        separator->box(FL_THIN_UP_BOX);
+        separator->color(fl_rgb_color(220, 220, 220));
+        separator->deactivate();
+        return separator;
+    }
+
+private:
+    std::pair<int, int> reserveSlot(int width, int height) {
+        if (currentX_ + width > w() - padding_) {
+            currentX_ = padding_;
+            currentY_ += height + spacing_;
+        }
+        int itemX = x() + currentX_;
+        int itemY = y() + currentY_;
+        currentX_ += width + spacing_;
+        return {itemX, itemY};
+    }
+
+    int padding_;
+    int spacing_;
+    int itemHeight_;
+    int currentX_;
+    int currentY_;
+};
 
 class IntegratorGUI {
 public:
@@ -33,8 +113,8 @@ private:
 
     Fl_Double_Window* hashWindow_;
     Fl_Double_Window* treeWindow_;
-    Fl_Group*         hashToolStrip_;
-    Fl_Group*         treeToolStrip_;
+    ToolStrip*        hashToolStrip_;
+    ToolStrip*        treeToolStrip_;
     Fl_Text_Display*  hashDisplay_;
     Fl_Text_Display*  treeDisplay_;
     Fl_Text_Buffer*   hashBuffer_;
@@ -105,41 +185,24 @@ IntegratorGUI::IntegratorGUI()
     const int windowHeight = 700;
 
     const int toolStripHeight = 90;
-    const int toolStripPadding = 10;
-    const int buttonWidth = 160;
-    const int buttonHeight = 28;
-    const int buttonSpacing = 8;
 
     hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (хеш-таблица)");
     hashWindow_->begin();
 
-    hashToolStrip_ = new Fl_Group(0, 0, windowWidth, toolStripHeight);
-    hashToolStrip_->box(FL_THIN_UP_BOX);
-    hashToolStrip_->color(fl_rgb_color(245, 245, 245));
+    hashToolStrip_ = new ToolStrip(0, 0, windowWidth, toolStripHeight);
     hashToolStrip_->begin();
-
-    int hashButtonX = toolStripPadding;
-    int hashButtonY = toolStripPadding;
-
-    auto placeHashButton = [&](const char* label, Fl_Callback* cb) {
-        if (hashButtonX + buttonWidth > windowWidth - toolStripPadding) {
-            hashButtonX = toolStripPadding;
-            hashButtonY += buttonHeight + buttonSpacing;
-        }
-        Fl_Button* button = new Fl_Button(hashButtonX, hashButtonY, buttonWidth, buttonHeight, label);
-        button->callback(cb, this);
-        hashButtonX += buttonWidth + buttonSpacing;
-    };
-
-    placeHashButton("Загрузить...", &IntegratorGUI::CallbackLoad);
-    placeHashButton("Сохранить...", &IntegratorGUI::CallbackSave);
-    placeHashButton("Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures);
-    placeHashButton("Очистить", &IntegratorGUI::CallbackClear);
-
-    placeHashButton("Добавить водителя", &IntegratorGUI::CallbackAddDriver);
-    placeHashButton("Изменить водителя", &IntegratorGUI::CallbackUpdateDriver);
-    placeHashButton("Удалить водителя", &IntegratorGUI::CallbackRemoveDriver);
-    placeHashButton("Найти водителя", &IntegratorGUI::CallbackFindDriver);
+    hashToolStrip_->addLabel("Файл", 70);
+    hashToolStrip_->addButton("Загрузить...", &IntegratorGUI::CallbackLoad, this);
+    hashToolStrip_->addButton("Сохранить...", &IntegratorGUI::CallbackSave, this);
+    hashToolStrip_->addButton("Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures, this);
+    hashToolStrip_->addSeparator();
+    hashToolStrip_->addButton("Очистить", &IntegratorGUI::CallbackClear, this);
+    hashToolStrip_->addSeparator();
+    hashToolStrip_->addLabel("Водители", 110);
+    hashToolStrip_->addButton("Добавить водителя", &IntegratorGUI::CallbackAddDriver, this);
+    hashToolStrip_->addButton("Изменить водителя", &IntegratorGUI::CallbackUpdateDriver, this);
+    hashToolStrip_->addButton("Удалить водителя", &IntegratorGUI::CallbackRemoveDriver, this);
+    hashToolStrip_->addButton("Найти водителя", &IntegratorGUI::CallbackFindDriver, this);
 
     hashToolStrip_->end();
 
@@ -170,29 +233,15 @@ IntegratorGUI::IntegratorGUI()
     treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (AVL-дерево)");
     treeWindow_->begin();
 
-    treeToolStrip_ = new Fl_Group(0, 0, windowWidth, toolStripHeight);
-    treeToolStrip_->box(FL_THIN_UP_BOX);
-    treeToolStrip_->color(fl_rgb_color(245, 245, 245));
+    treeToolStrip_ = new ToolStrip(0, 0, windowWidth, toolStripHeight);
     treeToolStrip_->begin();
-
-    int treeButtonX = toolStripPadding;
-    int treeButtonY = toolStripPadding;
-
-    auto placeTreeButton = [&](const char* label, Fl_Callback* cb) {
-        if (treeButtonX + buttonWidth > windowWidth - toolStripPadding) {
-            treeButtonX = toolStripPadding;
-            treeButtonY += buttonHeight + buttonSpacing;
-        }
-        Fl_Button* button = new Fl_Button(treeButtonX, treeButtonY, buttonWidth, buttonHeight, label);
-        button->callback(cb, this);
-        treeButtonX += buttonWidth + buttonSpacing;
-    };
-
-    placeTreeButton("Добавить заказ", &IntegratorGUI::CallbackAddOrder);
-    placeTreeButton("Изменить заказ", &IntegratorGUI::CallbackUpdateOrder);
-    placeTreeButton("Удалить заказ", &IntegratorGUI::CallbackRemoveOrder);
-    placeTreeButton("Заказы водителя", &IntegratorGUI::CallbackShowOrders);
-    placeTreeButton("Проверить заказ", &IntegratorGUI::CallbackCheckOrder);
+    treeToolStrip_->addLabel("Заказы", 100);
+    treeToolStrip_->addButton("Добавить заказ", &IntegratorGUI::CallbackAddOrder, this);
+    treeToolStrip_->addButton("Изменить заказ", &IntegratorGUI::CallbackUpdateOrder, this);
+    treeToolStrip_->addButton("Удалить заказ", &IntegratorGUI::CallbackRemoveOrder, this);
+    treeToolStrip_->addSeparator();
+    treeToolStrip_->addButton("Заказы водителя", &IntegratorGUI::CallbackShowOrders, this);
+    treeToolStrip_->addButton("Проверить заказ", &IntegratorGUI::CallbackCheckOrder, this);
 
     treeToolStrip_->end();
 
