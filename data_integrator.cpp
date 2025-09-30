@@ -208,8 +208,13 @@ DataIntegrator::DataIntegrator(std::size_t driverTableInitialSize, double maxLoa
       driverTableReady_(false),
       orderTreeReady_(false),
       defaultDriverTableSize_(std::max<std::size_t>(1u, driverTableInitialSize)),
-      driverTableMaxLoadFactor_(maxLoadFactor) {
+      driverTableMaxLoadFactor_(maxLoadFactor),
+      pendingDriverTableSize_() {
     avl_init(&orderTree_);
+}
+
+void DataIntegrator::setNextDriverTableSize(std::size_t size) {
+    pendingDriverTableSize_ = std::max<std::size_t>(1u, size);
 }
 
 bool DataIntegrator::createDriverTable(std::size_t initialSize) {
@@ -426,8 +431,11 @@ bool DataIntegrator::loadFromFile(const std::string& path) {
         parsedOrders.push_back(record);
     }
 
-    DataIntegrator temp(driverTable_.capacity(), driverTableMaxLoadFactor_);
-    temp.createDriverTable(driverTable_.capacity());
+    std::size_t requestedSize = pendingDriverTableSize_.value_or(driverTable_.capacity());
+    pendingDriverTableSize_.reset();
+
+    DataIntegrator temp(requestedSize, driverTableMaxLoadFactor_);
+    temp.createDriverTable(requestedSize);
     temp.createOrderTree();
 
     bool driversLoaded = true;

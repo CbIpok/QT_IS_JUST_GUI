@@ -49,6 +49,8 @@ public:
     std::size_t orderCount() const { return orders_.size(); }
     std::size_t driverTableCapacity() const { return driverTable_.capacity(); }
 
+    void setNextDriverTableSize(std::size_t size);
+
     void clear();
 
     bool loadFromFile(const std::string& path);
@@ -73,6 +75,7 @@ private:
     bool                           orderTreeReady_;
     std::size_t                    defaultDriverTableSize_;
     double                         driverTableMaxLoadFactor_;
+    std::optional<std::size_t>     pendingDriverTableSize_;
 
     std::optional<std::size_t> findDriverIndex(const std::string& licenseNumber) const;
     std::optional<std::size_t> findDriverIndex(const DriverRecord& record) const;

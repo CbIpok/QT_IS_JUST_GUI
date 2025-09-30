@@ -4,7 +4,7 @@
 
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
-#include <FL/Fl_Button.H>
+#include <FL/fl_draw.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Group.H>
 #include <FL/Fl_Native_File_Chooser.H>
@@ -16,10 +16,168 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <utility>
+#include <algorithm>
+#include <functional>
 
 #include "data_integrator.hpp"
 
 namespace {
+
+class FlowGroup : public Fl_Group {
+public:
+    FlowGroup(int X, int Y, int W, int H)
+        : Fl_Group(X, Y, W, H) {}
+
+    int layout_for_width(int width) {
+        int innerOffsetX = Fl::box_dx(box());
+        int innerOffsetY = Fl::box_dy(box());
+        int innerWidth = width - Fl::box_dw(box());
+        if (innerWidth <= 0) innerWidth = 1;
+
+        int cursorX = innerOffsetX;
+        int cursorY = innerOffsetY;
+        int lineHeight = 0;
+        int maxY = innerOffsetY;
+
+        for (int i = 0; i < children(); ++i) {
+            Fl_Widget* child = this->child(i);
+            if (!child->visible()) continue;
+
+            int childW = child->w();
+            int childH = child->h();
+
+            if (childW > innerWidth && innerWidth > 0) {
+                childW = innerWidth;
+            }
+
+            if (cursorX != innerOffsetX && cursorX + childW > innerOffsetX + innerWidth) {
+                cursorX = innerOffsetX;
+                cursorY += lineHeight;
+                lineHeight = 0;
+            }
+
+            child->resize(x() + cursorX, y() + cursorY, childW, childH);
+
+            cursorX += childW;
+            if (childH > lineHeight) lineHeight = childH;
+            if (cursorY + childH > maxY) maxY = cursorY + childH;
+        }
+
+        if (children() > 0) {
+            maxY = std::max(maxY, cursorY + lineHeight);
+        }
+
+        int usedHeight = children() == 0 ? 0 : (maxY - innerOffsetY);
+        int finalHeight = usedHeight + Fl::box_dh(box());
+        if (finalHeight < innerOffsetY + lineHeight + Fl::box_dh(box())) {
+            finalHeight = innerOffsetY + lineHeight + Fl::box_dh(box());
+        }
+        if (finalHeight < h()) {
+            finalHeight = std::max(finalHeight, innerOffsetY + lineHeight + Fl::box_dh(box()));
+        }
+
+        Fl_Group::resize(x(), y(), width, finalHeight);
+        return h();
+    }
+};
+
+class ClickableLabel : public Fl_Box {
+public:
+    ClickableLabel(int X, int Y, int W, int H, const char* label)
+        : Fl_Box(X, Y, W, H, label),
+          hovered_(false),
+          pressed_(false) {
+        box(FL_FLAT_BOX);
+        align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
+        labelfont(FL_HELVETICA);
+        labelsize(14);
+    }
+
+    int handle(int event) override {
+        switch (event) {
+            case FL_ENTER:
+                hovered_ = true;
+                redraw();
+                return 1;
+            case FL_LEAVE:
+                hovered_ = false;
+                pressed_ = false;
+                pressedInside_ = false;
+                redraw();
+                return 1;
+            case FL_PUSH:
+                if (Fl::event_button() == FL_LEFT_MOUSE) {
+                    pressed_ = true;
+                    pressedInside_ = true;
+                    redraw();
+                    return 1;
+                }
+                break;
+            case FL_DRAG: {
+                if (pressed_) {
+                    bool inside = Fl::event_inside(this);
+                    if (inside != pressedInside_) {
+                        pressedInside_ = inside;
+                        redraw();
+                    }
+                    return 1;
+                }
+                break;
+            }
+            case FL_RELEASE:
+                if (pressed_) {
+                    pressed_ = false;
+                    bool inside = Fl::event_inside(this);
+                    pressedInside_ = inside;
+                    redraw();
+                    if (inside) {
+                        do_callback();
+                    }
+                    return 1;
+                }
+                break;
+            default:
+                break;
+        }
+        return Fl_Box::handle(event);
+    }
+
+    void draw() override {
+        Fl_Color base = FL_BACKGROUND2_COLOR;
+        if (pressed_ && pressedInside_) {
+            base = fl_darker(base);
+        }
+        else if (hovered_) {
+            base = fl_lighter(base);
+        }
+        fl_draw_box(FL_FLAT_BOX, x(), y(), w(), h(), base);
+        fl_color(FL_FOREGROUND_COLOR);
+        Fl_Box::draw_label();
+    }
+
+private:
+    bool hovered_;
+    bool pressed_;
+    bool pressedInside_ = false;
+};
+
+class LayoutWindow : public Fl_Double_Window {
+public:
+    LayoutWindow(int W, int H, const char* title, std::function<void()> layout)
+        : Fl_Double_Window(W, H, title),
+          layout_(std::move(layout)) {}
+
+    void resize(int X, int Y, int W, int H) override {
+        Fl_Double_Window::resize(X, Y, W, H);
+        if (layout_) {
+            layout_();
+        }
+    }
+
+private:
+    std::function<void()> layout_;
+};
 
 class IntegratorGUI {
 public:
@@ -31,16 +189,18 @@ public:
 private:
     DataIntegrator integrator_;
 
-    Fl_Double_Window* hashWindow_;
-    Fl_Double_Window* treeWindow_;
-    Fl_Group*         hashToolStrip_;
-    Fl_Group*         treeToolStrip_;
+    LayoutWindow*     hashWindow_;
+    LayoutWindow*     treeWindow_;
+    FlowGroup*        hashToolStrip_;
+    FlowGroup*        treeToolStrip_;
     Fl_Text_Display*  hashDisplay_;
     Fl_Text_Display*  treeDisplay_;
     Fl_Text_Buffer*   hashBuffer_;
     Fl_Text_Buffer*   treeBuffer_;
     Fl_Box*           hashStatusBox_;
     Fl_Box*           treeStatusBox_;
+    Fl_Box*           hashTitle_;
+    Fl_Box*           treeTitle_;
 
     void refreshDataViews();
     void updateStatus(const std::string& message);
@@ -82,6 +242,9 @@ private:
     void handleShowOrderTree();
     void handleGenerateReport();
 
+    void layoutHashWindow();
+    void layoutTreeWindow();
+
     static void CallbackLoad(Fl_Widget*, void*);
     static void CallbackSave(Fl_Widget*, void*);
     static void CallbackSaveStructures(Fl_Widget*, void*);
@@ -115,67 +278,82 @@ IntegratorGUI::IntegratorGUI()
       hashBuffer_(nullptr),
       treeBuffer_(nullptr),
       hashStatusBox_(nullptr),
-      treeStatusBox_(nullptr) {
+      treeStatusBox_(nullptr),
+      hashTitle_(nullptr),
+      treeTitle_(nullptr) {
     const int windowWidth = 700;
     const int windowHeight = 700;
 
-    const int buttonWidth = 160;
-    const int buttonHeight = 28;
-    const int buttonSpacing = 10;
-    const int toolStripHeight = 140;
+    const int labelHeight = 28;
 
-    auto createToolbarButton = [&](Fl_Group* strip, int& x, int& y, const char* label, Fl_Callback* cb) {
-        if (x + buttonWidth > strip->w() - 10) {
-            x = 10;
-            y += buttonHeight + buttonSpacing;
-        }
-        Fl_Button* button = new Fl_Button(strip->x() + x, strip->y() + y, buttonWidth, buttonHeight, label);
-        button->callback(cb, this);
-        x += buttonWidth + buttonSpacing;
-        return button;
+    auto labelWidth = [](const char* text) {
+        fl_font(FL_HELVETICA, 14);
+        return static_cast<int>(fl_width(text)) + 16;
     };
 
-    hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (хеш-таблица)");
+    auto separatorWidth = []() {
+        fl_font(FL_HELVETICA_BOLD, 14);
+        return static_cast<int>(fl_width("|")) + 4;
+    };
+
+    auto createLabel = [&](const char* label, Fl_Callback* cb) {
+        ClickableLabel* widget = new ClickableLabel(0, 0, labelWidth(label), labelHeight, label);
+        widget->callback(cb, this);
+        return widget;
+    };
+
+    auto createSeparator = [&]() {
+        Fl_Box* sep = new Fl_Box(0, 0, separatorWidth(), labelHeight, "|");
+        sep->box(FL_FLAT_BOX);
+        sep->align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
+        sep->labelfont(FL_HELVETICA_BOLD);
+        sep->labelsize(14);
+        return sep;
+    };
+
+    hashWindow_ = new LayoutWindow(windowWidth, windowHeight, "Водители (хеш-таблица)", [this]() { layoutHashWindow(); });
     hashWindow_->begin();
 
-    hashToolStrip_ = new Fl_Group(0, 0, windowWidth, toolStripHeight);
+    hashToolStrip_ = new FlowGroup(0, 0, windowWidth, labelHeight);
     hashToolStrip_->box(FL_THIN_UP_BOX);
     hashToolStrip_->color(fl_rgb_color(245, 245, 245));
     hashToolStrip_->begin();
 
-    int hashButtonX = 10;
-    int hashButtonY = 10;
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Загрузить...", &IntegratorGUI::CallbackLoad);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить...", &IntegratorGUI::CallbackSave);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Очистить", &IntegratorGUI::CallbackClear);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Создать таблицу", &IntegratorGUI::CallbackCreateDriverTable);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Удалить таблицу", &IntegratorGUI::CallbackClearDriverTableOnly);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Показать таблицу", &IntegratorGUI::CallbackShowDriverTable);
-
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Добавить водителя", &IntegratorGUI::CallbackAddDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Изменить водителя", &IntegratorGUI::CallbackUpdateDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Удалить водителя", &IntegratorGUI::CallbackRemoveDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Найти водителя", &IntegratorGUI::CallbackFindDriver);
+    createLabel("Загр. из файла", &IntegratorGUI::CallbackLoad);
+    createSeparator();
+    createLabel("Выгр. в файл", &IntegratorGUI::CallbackSave);
+    createSeparator();
+    createLabel("Созд Табл", &IntegratorGUI::CallbackCreateDriverTable);
+    createSeparator();
+    createLabel("Отч Табл", &IntegratorGUI::CallbackShowDriverTable);
+    createSeparator();
+    createLabel("Доб", &IntegratorGUI::CallbackAddDriver);
+    createSeparator();
+    createLabel("Изм", &IntegratorGUI::CallbackUpdateDriver);
+    createSeparator();
+    createLabel("Найти", &IntegratorGUI::CallbackFindDriver);
+    createSeparator();
+    createLabel("Удалить", &IntegratorGUI::CallbackRemoveDriver);
+    createSeparator();
+    createLabel("Отч", &IntegratorGUI::CallbackSaveStructures);
+    createSeparator();
+    createLabel("Очист", &IntegratorGUI::CallbackClearDriverTableOnly);
 
     hashToolStrip_->end();
 
-    hashStatusBox_ = new Fl_Box(10, toolStripHeight + 5, windowWidth - 20, 30);
+    hashStatusBox_ = new Fl_Box(10, labelHeight + 5, windowWidth - 20, 30);
     hashStatusBox_->box(FL_THIN_DOWN_BOX);
     hashStatusBox_->labelfont(FL_HELVETICA_BOLD);
     hashStatusBox_->labelsize(14);
     hashStatusBox_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
     hashStatusBox_->copy_label("Готово.");
 
-    const int hashContentTop = toolStripHeight + 40;
-    const int hashContentHeight = windowHeight - hashContentTop - 10;
+    hashTitle_ = new Fl_Box(10, labelHeight + 40, windowWidth - 20, 25, "Хеш-таблица водителей");
+    hashTitle_->labelfont(FL_HELVETICA_BOLD);
+    hashTitle_->labelsize(14);
+    hashTitle_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
 
-    Fl_Box* hashLabel = new Fl_Box(10, hashContentTop, windowWidth - 20, 25, "Хеш-таблица водителей");
-    hashLabel->labelfont(FL_HELVETICA_BOLD);
-    hashLabel->labelsize(14);
-    hashLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
-
-    hashDisplay_ = new Fl_Text_Display(10, hashContentTop + 25, windowWidth - 20, hashContentHeight - 25);
+    hashDisplay_ = new Fl_Text_Display(10, hashTitle_->y() + 25, windowWidth - 20, windowHeight - (hashTitle_->y() + 25) - 10);
     hashDisplay_->box(FL_DOWN_BOX);
     hashDisplay_->textfont(FL_COURIER);
     hashDisplay_->textsize(13);
@@ -184,44 +362,47 @@ IntegratorGUI::IntegratorGUI()
     hashWindow_->end();
     hashWindow_->resizable(hashDisplay_);
 
-    treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (AVL-дерево)");
+    treeWindow_ = new LayoutWindow(windowWidth, windowHeight, "Заказы (AVL-дерево)", [this]() { layoutTreeWindow(); });
     treeWindow_->begin();
 
-    treeToolStrip_ = new Fl_Group(0, 0, windowWidth, toolStripHeight);
+    treeToolStrip_ = new FlowGroup(0, 0, windowWidth, labelHeight);
     treeToolStrip_->box(FL_THIN_UP_BOX);
     treeToolStrip_->color(fl_rgb_color(245, 245, 245));
     treeToolStrip_->begin();
 
-    int treeButtonX = 10;
-    int treeButtonY = 10;
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Добавить заказ", &IntegratorGUI::CallbackAddOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Изменить заказ", &IntegratorGUI::CallbackUpdateOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Удалить заказ", &IntegratorGUI::CallbackRemoveOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Заказы водителя", &IntegratorGUI::CallbackShowOrders);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Проверить заказ", &IntegratorGUI::CallbackCheckOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Создать дерево", &IntegratorGUI::CallbackCreateOrderTree);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Удалить дерево", &IntegratorGUI::CallbackClearOrderTreeOnly);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Показать дерево", &IntegratorGUI::CallbackShowOrderTree);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Сформировать отчёт", &IntegratorGUI::CallbackGenerateReport);
+    createLabel("Созд Табл", &IntegratorGUI::CallbackCreateOrderTree);
+    createSeparator();
+    createLabel("Отч Табл", &IntegratorGUI::CallbackShowOrderTree);
+    createSeparator();
+    createLabel("Доб", &IntegratorGUI::CallbackAddOrder);
+    createSeparator();
+    createLabel("Изм", &IntegratorGUI::CallbackUpdateOrder);
+    createSeparator();
+    createLabel("Найти", &IntegratorGUI::CallbackCheckOrder);
+    createSeparator();
+    createLabel("Удалить", &IntegratorGUI::CallbackRemoveOrder);
+    createSeparator();
+    createLabel("Заказы", &IntegratorGUI::CallbackShowOrders);
+    createSeparator();
+    createLabel("Отч", &IntegratorGUI::CallbackGenerateReport);
+    createSeparator();
+    createLabel("Очист", &IntegratorGUI::CallbackClearOrderTreeOnly);
 
     treeToolStrip_->end();
 
-    treeStatusBox_ = new Fl_Box(10, toolStripHeight + 5, windowWidth - 20, 30);
+    treeStatusBox_ = new Fl_Box(10, labelHeight + 5, windowWidth - 20, 30);
     treeStatusBox_->box(FL_THIN_DOWN_BOX);
     treeStatusBox_->labelfont(FL_HELVETICA_BOLD);
     treeStatusBox_->labelsize(14);
     treeStatusBox_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
     treeStatusBox_->copy_label("Готово.");
 
-    const int treeContentTop = toolStripHeight + 40;
-    const int treeContentHeight = windowHeight - treeContentTop - 10;
+    treeTitle_ = new Fl_Box(10, labelHeight + 40, windowWidth - 20, 25, "Дерево заказов (AVL)");
+    treeTitle_->labelfont(FL_HELVETICA_BOLD);
+    treeTitle_->labelsize(14);
+    treeTitle_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
 
-    Fl_Box* treeLabel = new Fl_Box(10, treeContentTop, windowWidth - 20, 25, "Дерево заказов (AVL)");
-    treeLabel->labelfont(FL_HELVETICA_BOLD);
-    treeLabel->labelsize(14);
-    treeLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
-
-    treeDisplay_ = new Fl_Text_Display(10, treeContentTop + 25, windowWidth - 20, treeContentHeight - 25);
+    treeDisplay_ = new Fl_Text_Display(10, treeTitle_->y() + 25, windowWidth - 20, windowHeight - (treeTitle_->y() + 25) - 10);
     treeDisplay_->box(FL_DOWN_BOX);
     treeDisplay_->textfont(FL_COURIER);
     treeDisplay_->textsize(13);
@@ -234,6 +415,9 @@ IntegratorGUI::IntegratorGUI()
     treeBuffer_ = new Fl_Text_Buffer();
     hashDisplay_->buffer(hashBuffer_);
     treeDisplay_->buffer(treeBuffer_);
+
+    layoutHashWindow();
+    layoutTreeWindow();
 }
 
 IntegratorGUI::~IntegratorGUI() {
@@ -284,6 +468,52 @@ void IntegratorGUI::refreshDataViews() {
 
     hashBuffer_->text(hashText.c_str());
     treeBuffer_->text(treeText.c_str());
+}
+
+void IntegratorGUI::layoutHashWindow() {
+    if (!hashWindow_ || !hashToolStrip_ || !hashStatusBox_ || !hashDisplay_ || !hashTitle_) {
+        return;
+    }
+
+    int width = hashWindow_->w();
+    int height = hashWindow_->h();
+
+    int toolHeight = hashToolStrip_->layout_for_width(width);
+    hashStatusBox_->resize(10, hashToolStrip_->y() + toolHeight + 5, width - 20, 30);
+
+    int contentTop = hashStatusBox_->y() + hashStatusBox_->h() + 5;
+    hashTitle_->resize(10, contentTop, width - 20, 25);
+
+    int displayTop = contentTop + 25;
+    int displayHeight = height - displayTop - 10;
+    if (displayHeight < 50) {
+        displayHeight = 50;
+    }
+    hashDisplay_->resize(10, displayTop, width - 20, displayHeight);
+    hashWindow_->redraw();
+}
+
+void IntegratorGUI::layoutTreeWindow() {
+    if (!treeWindow_ || !treeToolStrip_ || !treeStatusBox_ || !treeDisplay_ || !treeTitle_) {
+        return;
+    }
+
+    int width = treeWindow_->w();
+    int height = treeWindow_->h();
+
+    int toolHeight = treeToolStrip_->layout_for_width(width);
+    treeStatusBox_->resize(10, treeToolStrip_->y() + toolHeight + 5, width - 20, 30);
+
+    int contentTop = treeStatusBox_->y() + treeStatusBox_->h() + 5;
+    treeTitle_->resize(10, contentTop, width - 20, 25);
+
+    int displayTop = contentTop + 25;
+    int displayHeight = height - displayTop - 10;
+    if (displayHeight < 50) {
+        displayHeight = 50;
+    }
+    treeDisplay_->resize(10, displayTop, width - 20, displayHeight);
+    treeWindow_->redraw();
 }
 
 void IntegratorGUI::updateStatus(const std::string& message) {
@@ -491,11 +721,23 @@ std::optional<std::string> IntegratorGUI::promptFilePath(const char* dialogTitle
 }
 
 void IntegratorGUI::handleLoad() {
+    int initial = static_cast<int>(integrator_.driverTableCapacity());
+    if (initial < 1) {
+        initial = 1;
+    }
+
+    std::optional<int> sizeOpt = promptInt("Введите начальный размер хеш-таблицы:", initial, 1);
+    if (!sizeOpt) {
+        return;
+    }
+
     auto path = promptFilePath("Выбор файла конфигурации",
                                "Введите путь к файлу конфигурации:",
                                Fl_Native_File_Chooser::BROWSE_FILE,
                                false);
     if (!path) return;
+
+    integrator_.setNextDriverTableSize(static_cast<std::size_t>(*sizeOpt));
 
     if (integrator_.loadFromFile(*path)) {
         updateStatus("Файл успешно загружен.");
