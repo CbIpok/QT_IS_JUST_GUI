@@ -24,10 +24,52 @@
 
 namespace {
 
+bool isValidUtf8(const std::string& input) {
+    const unsigned char* bytes = reinterpret_cast<const unsigned char*>(input.data());
+    std::size_t          size = input.size();
+    std::size_t          i = 0;
+    while (i < size) {
+        unsigned char c = bytes[i];
+        if (c <= 0x7F) {
+            ++i;
+            continue;
+        }
+
+        std::size_t additional = 0;
+        if ((c & 0xE0) == 0xC0) {
+            additional = 1;
+            if ((c & 0xFE) == 0xC0) {
+                return false;
+            }
+        }
+        else if ((c & 0xF0) == 0xE0) {
+            additional = 2;
+        }
+        else if ((c & 0xF8) == 0xF0) {
+            additional = 3;
+        }
+        else {
+            return false;
+        }
+
+        if (i + additional >= size) {
+            return false;
+        }
+
+        for (std::size_t j = 1; j <= additional; ++j) {
+            if ((bytes[i + j] & 0xC0) != 0x80) {
+                return false;
+            }
+        }
+        i += additional + 1;
+    }
+    return true;
+}
+
 #if defined(_WIN32)
-std::string ansiToUtf8(const std::string& input) {
-    if (input.empty()) {
-        return {};
+std::string decodeTextField(const std::string& input) {
+    if (input.empty() || isValidUtf8(input)) {
+        return input;
     }
 
     int wideLength = MultiByteToWideChar(CP_ACP, 0, input.c_str(), -1, nullptr, 0);
@@ -50,38 +92,9 @@ std::string ansiToUtf8(const std::string& input) {
     }
     return utf8;
 }
-
-std::string utf8ToAnsi(const std::string& input) {
-    if (input.empty()) {
-        return {};
-    }
-
-    int wideLength = MultiByteToWideChar(CP_UTF8, 0, input.c_str(), -1, nullptr, 0);
-    if (wideLength <= 0) {
-        return input;
-    }
-
-    std::wstring wide(static_cast<std::size_t>(wideLength), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, input.c_str(), -1, wide.data(), wideLength);
-
-    int ansiLength = WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    if (ansiLength <= 0) {
-        return input;
-    }
-
-    std::string ansi(static_cast<std::size_t>(ansiLength), '\0');
-    WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, ansi.data(), ansiLength, nullptr, nullptr);
-    if (!ansi.empty() && ansi.back() == '\0') {
-        ansi.pop_back();
-    }
-    return ansi;
-}
+    
 #else
-inline std::string ansiToUtf8(const std::string& input) {
-    return input;
-}
-
-inline std::string utf8ToAnsi(const std::string& input) {
+std::string decodeTextField(const std::string& input) {
     return input;
 }
 #endif
@@ -129,9 +142,9 @@ bool parseDriverLine(const std::string& line, DriverRecord& out) {
 
     if (parts[0].empty()) return false;
 
-    out.licenseNumber = ansiToUtf8(parts[0]);
-    out.fio = ansiToUtf8(parts[1]);
-    out.carBrand = ansiToUtf8(parts[2]);
+    out.licenseNumber = decodeTextField(parts[0]);
+    out.fio = decodeTextField(parts[1]);
+    out.carBrand = decodeTextField(parts[2]);
     out.originalLine = originalLine;
     return true;
 }
@@ -143,10 +156,10 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
 
     if (parts[0].empty()) return false;
 
-    out.licenseNumber = ansiToUtf8(parts[0]);
-    out.address = ansiToUtf8(parts[1]);
-    out.cost = ansiToUtf8(parts[2]);
-    out.date = ansiToUtf8(parts[3]);
+    out.licenseNumber = decodeTextField(parts[0]);
+    out.address = decodeTextField(parts[1]);
+    out.cost = decodeTextField(parts[2]);
+    out.date = decodeTextField(parts[3]);
     return true;
 }
 
@@ -555,14 +568,12 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
 
     output << "drivers " << drivers_.size() << '\n';
     drivers_.for_each([&](const DriverRecord& driver, std::size_t) {
-        output << utf8ToAnsi(driver.licenseNumber) << '|' << utf8ToAnsi(driver.fio) << '|' << utf8ToAnsi(driver.carBrand) << '|'
-               << driver.originalLine << '\n';
+        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '|' << driver.originalLine << '\n';
     });
 
     output << "orders " << orders_.size() << '\n';
     orders_.for_each([&](const OrderRecord& order, std::size_t) {
-        output << utf8ToAnsi(order.licenseNumber) << '|' << utf8ToAnsi(order.address) << '|' << utf8ToAnsi(order.cost) << '|'
-               << utf8ToAnsi(order.date) << '\n';
+        output << order.licenseNumber << '|' << order.address << '|' << order.cost << '|' << order.date << '\n';
     });
 
     output.flush();
@@ -632,10 +643,10 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
         }
         std::string hashText = hashTableAsText();
         if (hashText.empty()) {
-            hashOut << utf8ToAnsi("Структура хеш-таблицы не создана\n");
+            hashOut << "Структура хеш-таблицы не создана\n";
         }
         else {
-            hashOut << utf8ToAnsi(hashText);
+            hashOut << hashText;
         }
         if (!hashOut) {
             return false;
@@ -649,10 +660,10 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
         }
         std::string treeText = orderTreeAsText();
         if (treeText.empty()) {
-            treeOut << utf8ToAnsi("Структура дерева заказов не создана\n");
+            treeOut << "Структура дерева заказов не создана\n";
         }
         else {
-            treeOut << utf8ToAnsi(treeText);
+            treeOut << treeText;
         }
         if (!treeOut) {
             return false;
