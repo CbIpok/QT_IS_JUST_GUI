@@ -286,40 +286,25 @@ IntegratorGUI::IntegratorGUI()
 
     const int labelHeight = 28;
 
-    const char* const allLabelTexts[] = {
-        "Загр. из файла",
-        "Выгр. в файл",
-        "Созд Табл",
-        "Отч Табл",
-        "Доб",
-        "Изм",
-        "Найти",
-        "Удалить",
-        "Отч",
-        "Очист",
-        "Заказы"
-    };
-
     fl_font(FL_HELVETICA, 14);
-    int computedLabelWidth = 0;
-    for (const char* text : allLabelTexts) {
-        int width = static_cast<int>(fl_width(text)) + 16;
-        if (width > computedLabelWidth) {
-            computedLabelWidth = width;
-        }
-    }
-    const int labelWidth = computedLabelWidth;
+    const int horizontalPadding = 16;
 
     fl_font(FL_HELVETICA_BOLD, 14);
     const int separatorWidth = static_cast<int>(fl_width("|")) + 4;
 
     auto createLabel = [&](const char* label, Fl_Callback* cb) {
-        ClickableLabel* widget = new ClickableLabel(0, 0, labelWidth, labelHeight, label);
+        fl_font(FL_HELVETICA, 14);
+        int width = static_cast<int>(fl_width(label)) + horizontalPadding;
+        if (width < horizontalPadding) {
+            width = horizontalPadding;
+        }
+        ClickableLabel* widget = new ClickableLabel(0, 0, width, labelHeight, label);
         widget->callback(cb, this);
         return widget;
     };
 
     auto createSeparator = [&]() {
+        fl_font(FL_HELVETICA_BOLD, 14);
         Fl_Box* sep = new Fl_Box(0, 0, separatorWidth, labelHeight, "|");
         sep->box(FL_FLAT_BOX);
         sep->align(FL_ALIGN_CENTER | FL_ALIGN_INSIDE);
