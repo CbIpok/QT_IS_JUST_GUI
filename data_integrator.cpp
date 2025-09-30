@@ -391,7 +391,7 @@ void DataIntegrator::clear() {
     clearOrderTree();
 }
 
-bool DataIntegrator::loadFromFile(const std::string& path) {
+bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDriverTableSize) {
     std::ifstream input(path);
     if (!input.is_open()) return false;
 
@@ -426,8 +426,13 @@ bool DataIntegrator::loadFromFile(const std::string& path) {
         parsedOrders.push_back(record);
     }
 
-    DataIntegrator temp(driverTable_.capacity(), driverTableMaxLoadFactor_);
-    temp.createDriverTable(driverTable_.capacity());
+    std::size_t tableCapacity = driverTable_.capacity();
+    if (initialDriverTableSize > 0) {
+        tableCapacity = initialDriverTableSize;
+    }
+
+    DataIntegrator temp(tableCapacity, driverTableMaxLoadFactor_);
+    temp.createDriverTable(tableCapacity);
     temp.createOrderTree();
 
     bool driversLoaded = true;
