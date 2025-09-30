@@ -4,9 +4,9 @@
 
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
-#include <FL/Fl_Button.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Group.H>
+#include <FL/Fl_Menu_Bar.H>
 #include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
@@ -33,8 +33,8 @@ private:
 
     Fl_Double_Window* hashWindow_;
     Fl_Double_Window* treeWindow_;
-    Fl_Group*         hashToolStrip_;
-    Fl_Group*         treeToolStrip_;
+    Fl_Menu_Bar*      hashMenuBar_;
+    Fl_Menu_Bar*      treeMenuBar_;
     Fl_Text_Display*  hashDisplay_;
     Fl_Text_Display*  treeDisplay_;
     Fl_Text_Buffer*   hashBuffer_;
@@ -93,8 +93,8 @@ IntegratorGUI::IntegratorGUI()
     : integrator_(),
       hashWindow_(nullptr),
       treeWindow_(nullptr),
-      hashToolStrip_(nullptr),
-      treeToolStrip_(nullptr),
+      hashMenuBar_(nullptr),
+      treeMenuBar_(nullptr),
       hashDisplay_(nullptr),
       treeDisplay_(nullptr),
       hashBuffer_(nullptr),
@@ -104,52 +104,30 @@ IntegratorGUI::IntegratorGUI()
     const int windowWidth = 700;
     const int windowHeight = 700;
 
-    const int buttonWidth = 160;
-    const int buttonHeight = 28;
-    const int buttonSpacing = 10;
-    const int toolStripHeight = 140;
-
-    auto createToolbarButton = [&](Fl_Group* strip, int& x, int& y, const char* label, Fl_Callback* cb) {
-        if (x + buttonWidth > strip->w() - 10) {
-            x = 10;
-            y += buttonHeight + buttonSpacing;
-        }
-        Fl_Button* button = new Fl_Button(strip->x() + x, strip->y() + y, buttonWidth, buttonHeight, label);
-        button->callback(cb, this);
-        x += buttonWidth + buttonSpacing;
-        return button;
-    };
+    const int menuHeight = 30;
 
     hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (хеш-таблица)");
     hashWindow_->begin();
 
-    hashToolStrip_ = new Fl_Group(0, 0, windowWidth, toolStripHeight);
-    hashToolStrip_->box(FL_THIN_UP_BOX);
-    hashToolStrip_->color(fl_rgb_color(245, 245, 245));
-    hashToolStrip_->begin();
+    hashMenuBar_ = new Fl_Menu_Bar(0, 0, windowWidth, menuHeight);
+    hashMenuBar_->box(FL_FLAT_BOX);
+    hashMenuBar_->add("Файл/Загрузить...", 0, &IntegratorGUI::CallbackLoad, this);
+    hashMenuBar_->add("Файл/Сохранить...", 0, &IntegratorGUI::CallbackSave, this);
+    hashMenuBar_->add("Файл/Сохранить структуры...", 0, &IntegratorGUI::CallbackSaveStructures, this);
+    hashMenuBar_->add("Файл/Очистить", 0, &IntegratorGUI::CallbackClear, this, FL_MENU_DIVIDER);
+    hashMenuBar_->add("Водители/Добавить", 0, &IntegratorGUI::CallbackAddDriver, this);
+    hashMenuBar_->add("Водители/Изменить", 0, &IntegratorGUI::CallbackUpdateDriver, this);
+    hashMenuBar_->add("Водители/Удалить", 0, &IntegratorGUI::CallbackRemoveDriver, this);
+    hashMenuBar_->add("Водители/Найти", 0, &IntegratorGUI::CallbackFindDriver, this);
 
-    int hashButtonX = 10;
-    int hashButtonY = 10;
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Загрузить...", &IntegratorGUI::CallbackLoad);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить...", &IntegratorGUI::CallbackSave);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Сохранить структуры...", &IntegratorGUI::CallbackSaveStructures);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Очистить", &IntegratorGUI::CallbackClear);
-
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Добавить водителя", &IntegratorGUI::CallbackAddDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Изменить водителя", &IntegratorGUI::CallbackUpdateDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Удалить водителя", &IntegratorGUI::CallbackRemoveDriver);
-    createToolbarButton(hashToolStrip_, hashButtonX, hashButtonY, "Найти водителя", &IntegratorGUI::CallbackFindDriver);
-
-    hashToolStrip_->end();
-
-    hashStatusBox_ = new Fl_Box(10, toolStripHeight + 5, windowWidth - 20, 30);
+    hashStatusBox_ = new Fl_Box(10, menuHeight + 5, windowWidth - 20, 30);
     hashStatusBox_->box(FL_THIN_DOWN_BOX);
     hashStatusBox_->labelfont(FL_HELVETICA_BOLD);
     hashStatusBox_->labelsize(14);
     hashStatusBox_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
     hashStatusBox_->copy_label("Готово.");
 
-    const int hashContentTop = toolStripHeight + 40;
+    const int hashContentTop = menuHeight + 40;
     const int hashContentHeight = windowHeight - hashContentTop - 10;
 
     Fl_Box* hashLabel = new Fl_Box(10, hashContentTop, windowWidth - 20, 25, "Хеш-таблица водителей");
@@ -169,29 +147,22 @@ IntegratorGUI::IntegratorGUI()
     treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (AVL-дерево)");
     treeWindow_->begin();
 
-    treeToolStrip_ = new Fl_Group(0, 0, windowWidth, toolStripHeight);
-    treeToolStrip_->box(FL_THIN_UP_BOX);
-    treeToolStrip_->color(fl_rgb_color(245, 245, 245));
-    treeToolStrip_->begin();
+    treeMenuBar_ = new Fl_Menu_Bar(0, 0, windowWidth, menuHeight);
+    treeMenuBar_->box(FL_FLAT_BOX);
+    treeMenuBar_->add("Заказы/Добавить", 0, &IntegratorGUI::CallbackAddOrder, this);
+    treeMenuBar_->add("Заказы/Изменить", 0, &IntegratorGUI::CallbackUpdateOrder, this);
+    treeMenuBar_->add("Заказы/Удалить", 0, &IntegratorGUI::CallbackRemoveOrder, this);
+    treeMenuBar_->add("Заказы/Список водителя", 0, &IntegratorGUI::CallbackShowOrders, this);
+    treeMenuBar_->add("Заказы/Проверить", 0, &IntegratorGUI::CallbackCheckOrder, this);
 
-    int treeButtonX = 10;
-    int treeButtonY = 10;
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Добавить заказ", &IntegratorGUI::CallbackAddOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Изменить заказ", &IntegratorGUI::CallbackUpdateOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Удалить заказ", &IntegratorGUI::CallbackRemoveOrder);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Заказы водителя", &IntegratorGUI::CallbackShowOrders);
-    createToolbarButton(treeToolStrip_, treeButtonX, treeButtonY, "Проверить заказ", &IntegratorGUI::CallbackCheckOrder);
-
-    treeToolStrip_->end();
-
-    treeStatusBox_ = new Fl_Box(10, toolStripHeight + 5, windowWidth - 20, 30);
+    treeStatusBox_ = new Fl_Box(10, menuHeight + 5, windowWidth - 20, 30);
     treeStatusBox_->box(FL_THIN_DOWN_BOX);
     treeStatusBox_->labelfont(FL_HELVETICA_BOLD);
     treeStatusBox_->labelsize(14);
     treeStatusBox_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
     treeStatusBox_->copy_label("Готово.");
 
-    const int treeContentTop = toolStripHeight + 40;
+    const int treeContentTop = menuHeight + 40;
     const int treeContentHeight = windowHeight - treeContentTop - 10;
 
     Fl_Box* treeLabel = new Fl_Box(10, treeContentTop, windowWidth - 20, 25, "Дерево заказов (AVL)");
