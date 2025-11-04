@@ -37,10 +37,10 @@ OrderRecord MakeOrder(const std::string& license,
                       const std::string& address,
                       const std::string& cost,
                       const std::string& dateText) {
-    OrderDate parsed{};
-    if (!OrderDate::parse(dateText, parsed)) {
+    Date parsed{};
+    if (!Date::parse(dateText, parsed)) {
         ADD_FAILURE() << "Не удалось разобрать дату: " << dateText;
-        parsed = OrderDate();
+        parsed = Date();
     }
     return OrderRecord{license, address, cost, parsed};
 }
@@ -374,7 +374,7 @@ TEST(DataIntegratorUseCasesTest, UseCase17_FilterOrdersByDriverLicense) {
     ASSERT_EQ(orders.size(), 1u);
     EXPECT_EQ(orders.front().address, "Basic Street 50");
     EXPECT_EQ(orders.front().cost, "1490");
-    EXPECT_EQ(orders.front().date.storageString(), "2024-12-50");
+    EXPECT_EQ(orders.front().date.storageString(), "2025-01-19");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase18_FilterOrdersByAddress) {
@@ -392,7 +392,7 @@ TEST(DataIntegratorUseCasesTest, UseCase19_FilterOrdersByCost) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
 
-    OrderRecord order = MakeOrder("VB-149", "Basic Street 50", "1490", "2024-12-50");
+    OrderRecord order = MakeOrder("VB-149", "Basic Street 50", "1490", "2025-01-19");
     EXPECT_TRUE(integrator.hasOrder(order));
 }
 

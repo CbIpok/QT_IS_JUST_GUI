@@ -244,7 +244,7 @@ private:
     void handleCreateOrderTree();
     void handleClearOrderTreeOnly();
     void handleShowOrderTree();
-    void handleShowOrderDateTree();
+    void handleShowDateTree();
     void handleGenerateReport();
 
     static void CallbackLoad(Fl_Widget*, void*);
@@ -266,7 +266,7 @@ private:
     static void CallbackCreateOrderTree(Fl_Widget*, void*);
     static void CallbackClearOrderTreeOnly(Fl_Widget*, void*);
     static void CallbackShowOrderTree(Fl_Widget*, void*);
-    static void CallbackShowOrderDateTree(Fl_Widget*, void*);
+    static void CallbackShowDateTree(Fl_Widget*, void*);
     static void CallbackGenerateReport(Fl_Widget*, void*);
 };
 
@@ -351,7 +351,7 @@ IntegratorGUI::IntegratorGUI()
     treeMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveOrder, this);
     treeMenuBar_->add("Отч", 0, &IntegratorGUI::CallbackShowOrders, this);
     treeMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowOrderTree, this);
-    treeMenuBar_->add("Табл дат", 0, &IntegratorGUI::CallbackShowOrderDateTree, this);
+    treeMenuBar_->add("Табл дат", 0, &IntegratorGUI::CallbackShowDateTree, this);
     treeMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateOrderTree, this);
     treeMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearOrderTreeOnly, this);
     treeMenuBar_->add("Заказы (Генерация отчётов)", 0, &IntegratorGUI::CallbackGenerateReport, this);
@@ -390,7 +390,7 @@ IntegratorGUI::IntegratorGUI()
                                      220,
                                      orderButtonHeight,
                                      "Отладка AVL (даты)");
-    dateDebugButton_->callback(&IntegratorGUI::CallbackShowOrderDateTree, this);
+    dateDebugButton_->callback(&IntegratorGUI::CallbackShowDateTree, this);
 
     treeWindow_->end();
     treeWindow_->resizable(orderTable_);
@@ -572,13 +572,13 @@ std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial
     }
 
     std::string currentDate = datePromptDefault;
-    OrderDate parsedDate{};
+    Date parsedDate{};
     while (true) {
         std::optional<std::string> dateInput = promptNonEmpty("Дата (YYYY-MM-DD или DD Mon YYYY):", currentDate);
         if (!dateInput) {
             return std::nullopt;
         }
-        if (OrderDate::parse(*dateInput, parsedDate)) {
+        if (Date::parse(*dateInput, parsedDate)) {
             break;
         }
         showError("Введите корректную дату в формате YYYY-MM-DD или DD Mon YYYY.");
@@ -1030,7 +1030,7 @@ void IntegratorGUI::handleShowOrderTree() {
     showTextWindow("Дерево заказов", text);
 }
 
-void IntegratorGUI::handleShowOrderDateTree() {
+void IntegratorGUI::handleShowDateTree() {
     if (!integrator_.hasOrderTree()) {
         showError("Дерево заказов ещё не создано.");
         return;
@@ -1140,8 +1140,8 @@ void IntegratorGUI::CallbackShowOrderTree(Fl_Widget*, void* data) {
     static_cast<IntegratorGUI*>(data)->handleShowOrderTree();
 }
 
-void IntegratorGUI::CallbackShowOrderDateTree(Fl_Widget*, void* data) {
-    static_cast<IntegratorGUI*>(data)->handleShowOrderDateTree();
+void IntegratorGUI::CallbackShowDateTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowDateTree();
 }
 
 void IntegratorGUI::CallbackGenerateReport(Fl_Widget*, void* data) {
