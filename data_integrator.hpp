@@ -51,7 +51,7 @@ public:
 
     void clear();
 
-    bool loadFromFile(const std::string& path);
+    bool loadFromFile(const std::string& path, std::size_t initialDriverTableSize = 0);
     bool saveToFile(const std::string& path) const;
     std::string hashTableAsText() const;
     std::string orderTreeAsText() const;
