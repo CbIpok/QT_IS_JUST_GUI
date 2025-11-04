@@ -2,16 +2,16 @@
 #define AVL_TREE_H
 
 #include <cstddef>
-#include <list>
 #include <string>
-#include <vector>
+
+#include "DoublyLinkedList.hpp"
 
 struct AVLNode {
     std::string              license;
     int         height;
     AVLNode*    left;
     AVLNode*    right;
-    std::list<std::size_t>   listIndices;
+    DoublyLinkedList<std::size_t> listIndices;
 };
 
 struct AVLTree {
@@ -27,7 +27,7 @@ bool avl_remove(AVLTree* tree, const std::string& license);
 AVLNode* avl_search(AVLTree* tree, const std::string& license);
 const AVLNode* avl_search(const AVLTree* tree, const std::string& license);
 
-std::vector<AVLNode*> avl_inorder_nodes(const AVLTree* tree);
+DoublyLinkedList<AVLNode*> avl_inorder_nodes(const AVLTree* tree);
 void avl_free(AVLTree* tree);
 
 bool avl_remove_index(AVLTree* tree, const std::string& license, std::size_t listIndex);

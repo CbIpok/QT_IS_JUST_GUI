@@ -120,6 +120,36 @@ public:
         }
     }
 
+    bool remove_first(const T& value) {
+        Node* cur = head_;
+        while (cur) {
+            if (cur->data == value) {
+                Node* next = cur->next;
+                unlink_node(cur);
+                delete cur;
+                --size_;
+                if (size_ == 0) {
+                    head_ = tail_ = nullptr;
+                }
+                return true;
+            }
+            cur = cur->next;
+        }
+        return false;
+    }
+
+    bool replace_first(const T& oldValue, const T& newValue) {
+        Node* cur = head_;
+        while (cur) {
+            if (cur->data == oldValue) {
+                cur->data = newValue;
+                return true;
+            }
+            cur = cur->next;
+        }
+        return false;
+    }
+
     void remove_before_value(const T& value) {
         Node* cur = head_;
         while (cur && cur->next) {
@@ -147,6 +177,26 @@ public:
     int length() const { return static_cast<int>(size_); }
     size_t size() const { return size_; }
     bool empty() const { return size_ == 0; }
+
+    T& front() {
+        if (!head_) throw std::out_of_range("list empty");
+        return head_->data;
+    }
+
+    const T& front() const {
+        if (!head_) throw std::out_of_range("list empty");
+        return head_->data;
+    }
+
+    T& back() {
+        if (!tail_) throw std::out_of_range("list empty");
+        return tail_->data;
+    }
+
+    const T& back() const {
+        if (!tail_) throw std::out_of_range("list empty");
+        return tail_->data;
+    }
 
     void reverse() {
         Node* cur = head_;
@@ -185,6 +235,10 @@ public:
         return n->data;
     }
 
+    T& operator[](size_t index) { return at(index); }
+
+    const T& operator[](size_t index) const { return at(index); }
+
     bool remove_by_index(size_t index, SwapRemoveResult& result) {
         if (index >= size_) return false;
         Node* target = node_at(index);
@@ -221,6 +275,48 @@ public:
             cur = cur->next;
             ++idx;
         }
+    }
+
+    template <typename Func>
+    bool for_each_while(Func&& f) {
+        Node* cur = head_;
+        size_t idx = 0;
+        while (cur) {
+            if (!f(cur->data, idx)) {
+                return false;
+            }
+            cur = cur->next;
+            ++idx;
+        }
+        return true;
+    }
+
+    template <typename Func>
+    bool for_each_while(Func&& f) const {
+        Node* cur = head_;
+        size_t idx = 0;
+        while (cur) {
+            if (!f(cur->data, idx)) {
+                return false;
+            }
+            cur = cur->next;
+            ++idx;
+        }
+        return true;
+    }
+
+    bool find_first(const T& value, size_t& indexOut) const {
+        size_t idx = 0;
+        Node* cur = head_;
+        while (cur) {
+            if (cur->data == value) {
+                indexOut = idx;
+                return true;
+            }
+            cur = cur->next;
+            ++idx;
+        }
+        return false;
     }
 
     void swap(DoublyLinkedList& other) noexcept {
