@@ -88,9 +88,9 @@ protected:
             }
             case CONTEXT_RC_RESIZE: {
                 int totalWidth = w > 0 ? w : this->w();
-                col_width(0, totalWidth * 0.32);
-                col_width(1, totalWidth * 0.42);
-                col_width(2, totalWidth * 0.26);
+                col_width(0, totalWidth * 0.30);
+                col_width(1, totalWidth * 0.45);
+                col_width(2, totalWidth * 0.25);
                 break;
             }
             default:
