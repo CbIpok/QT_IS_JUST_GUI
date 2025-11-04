@@ -1,4 +1,4 @@
-﻿#include "data_integrator.hpp"
+#include "data_integrator.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -70,8 +70,8 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
     out.licenseNumber = parts[0];
     out.address = parts[1];
     out.cost = parts[2];
-    OrderDate parsed{};
-    if (!OrderDate::parse(parts[3], parsed)) {
+    Date parsed{};
+    if (!Date::parse(parts[3], parsed)) {
         return false;
     }
     out.date = parsed;
@@ -142,8 +142,8 @@ void appendDateNodeDetailed(const AVLNode*                     node,
     std::string label = node->license;
     if (label.size() == 8) {
         std::string iso = label.substr(0, 4) + "-" + label.substr(4, 2) + "-" + label.substr(6, 2);
-        OrderDate parsed{};
-        if (OrderDate::parse(iso, parsed)) {
+        Date parsed{};
+        if (Date::parse(iso, parsed)) {
             label = parsed.displayString();
         }
     }
@@ -733,10 +733,10 @@ DoublyLinkedList<ReportEntry> DataIntegrator::generateReport(const std::string& 
         return result;
     }
 
-    OrderDate fromDate{};
-    OrderDate toDate{};
-    bool      hasFrom = OrderDate::parse(dateFrom, fromDate);
-    bool      hasTo = OrderDate::parse(dateTo, toDate);
+    Date fromDate{};
+    Date toDate{};
+    bool      hasFrom = Date::parse(dateFrom, fromDate);
+    bool      hasTo = Date::parse(dateTo, toDate);
     std::string fromKey = hasFrom ? fromDate.key() : std::string();
     std::string toKey = hasTo ? toDate.key() : std::string();
 

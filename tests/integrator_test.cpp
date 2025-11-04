@@ -38,10 +38,10 @@ OrderRecord MakeOrder(const std::string& license,
                       const std::string& address,
                       const std::string& cost,
                       const std::string& dateText) {
-    OrderDate parsed{};
-    if (!OrderDate::parse(dateText, parsed)) {
+    Date parsed{};
+    if (!Date::parse(dateText, parsed)) {
         ADD_FAILURE() << "Не удалось разобрать дату: " << dateText;
-        parsed = OrderDate();
+        parsed = Date();
     }
     return OrderRecord{license, address, cost, parsed};
 }
