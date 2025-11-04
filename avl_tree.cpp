@@ -1,7 +1,6 @@
 ﻿#include <algorithm>
 #include <sstream>
 #include <string>
-#include <vector>
 
 #include "avl_tree.h"
 
@@ -161,7 +160,7 @@ static void free_node(AVLNode* node) {
     delete node;
 }
 
-static void inorder_traversal_nodes(AVLNode* node, std::vector<AVLNode*>& result) {
+static void inorder_traversal_nodes(AVLNode* node, DynamicArray<AVLNode*>& result) {
     if (!node) return;
     inorder_traversal_nodes(node->left, result);
     result.push_back(node);
@@ -190,8 +189,8 @@ const AVLNode* avl_search(const AVLTree* tree, const std::string& license) {
     return search_node(tree->root, license);
 }
 
-std::vector<AVLNode*> avl_inorder_nodes(const AVLTree* tree) {
-    std::vector<AVLNode*> result;
+DynamicArray<AVLNode*> avl_inorder_nodes(const AVLTree* tree) {
+    DynamicArray<AVLNode*> result;
     inorder_traversal_nodes(tree->root, result);
     return result;
 }
@@ -207,16 +206,14 @@ bool avl_remove_index(AVLTree* tree, const std::string& license, std::size_t lis
         return false;
     }
 
-    std::list<std::size_t>::iterator it = node->listIndices.begin();
-    while (it != node->listIndices.end()) {
-        if (*it == listIndex) {
-            node->listIndices.erase(it);
+    for (std::size_t i = 0; i < node->listIndices.size(); ++i) {
+        if (node->listIndices[i] == listIndex) {
+            node->listIndices.remove_at(i);
             if (node->listIndices.empty()) {
                 return avl_remove(tree, license);
             }
             return true;
         }
-        ++it;
     }
 
     return false;
@@ -228,13 +225,11 @@ bool avl_replace_index(AVLTree* tree, const std::string& license, std::size_t ol
         return false;
     }
 
-    std::list<std::size_t>::iterator it = node->listIndices.begin();
-    while (it != node->listIndices.end()) {
-        if (*it == oldIndex) {
-            *it = newIndex;
+    for (std::size_t i = 0; i < node->listIndices.size(); ++i) {
+        if (node->listIndices[i] == oldIndex) {
+            node->listIndices[i] = newIndex;
             return true;
         }
-        ++it;
     }
 
     return false;
@@ -260,14 +255,9 @@ void tree_to_stream(const AVLNode* node,
 
     if (!node->listIndices.empty()) {
         out << " [";
-        std::size_t total = node->listIndices.size();
-        std::size_t position = 0;
-        std::list<std::size_t>::const_iterator it = node->listIndices.begin();
-        while (it != node->listIndices.end()) {
-            out << *it;
-            ++position;
-            ++it;
-            if (position < total) {
+        for (std::size_t i = 0; i < node->listIndices.size(); ++i) {
+            out << node->listIndices[i];
+            if (i + 1 < node->listIndices.size()) {
                 out << ",";
             }
         }
@@ -275,7 +265,7 @@ void tree_to_stream(const AVLNode* node,
     }
     out << '\n';
 
-    std::vector<const AVLNode*> children;
+    DynamicArray<const AVLNode*> children;
     if (node->left) {
         children.push_back(node->left);
     }

@@ -2,10 +2,11 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 
 #include "DoublyLinkedList.hpp"
 #include "avl_tree.h"
+#include "date_tree.hpp"
+#include "dynamic_array.hpp"
 #include "driver_record.hpp"
 #include "hashtable.hpp"
 #include "order_record.hpp"
@@ -43,7 +44,7 @@ public:
     bool removeOrder(const OrderRecord& record);
     bool updateOrder(const OrderRecord& current, const OrderRecord& updated);
     bool hasOrder(const OrderRecord& record) const;
-    std::vector<OrderRecord> ordersForDriver(const std::string& licenseNumber) const;
+    DynamicArray<OrderRecord> ordersForDriver(const std::string& licenseNumber) const;
 
     std::size_t driverCount() const { return drivers_.size(); }
     std::size_t orderCount() const { return orders_.size(); }
@@ -56,19 +57,22 @@ public:
     std::string hashTableAsText() const;
     std::string orderTreeAsText() const;
     bool saveStructures(const std::string& hashTablePath, const std::string& treePath) const;
+    std::string driversAsTable() const;
+    std::string ordersAsTable() const;
 
-    std::vector<ReportEntry> generateReport(const std::string& licenseNumber,
-                                            const std::string& carBrand,
-                                            const std::string& address,
-                                            const std::string& dateFrom,
-                                            const std::string& dateTo) const;
-    std::string formatReport(const std::vector<ReportEntry>& entries) const;
+    DynamicArray<ReportEntry> generateReport(const std::string& licenseNumber,
+                                             const std::string& carBrand,
+                                             const std::string& address,
+                                             const std::string& dateFrom,
+                                             const std::string& dateTo) const;
+    std::string formatReport(const DynamicArray<ReportEntry>& entries) const;
 
 private:
     DoublyLinkedList<DriverRecord> drivers_;
     DoublyLinkedList<OrderRecord>  orders_;
     HashTable                      driverTable_;
     AVLTree                        orderTree_;
+    DateTree                       dateTree_;
     bool                           driverTableReady_;
     bool                           orderTreeReady_;
     std::size_t                    defaultDriverTableSize_;

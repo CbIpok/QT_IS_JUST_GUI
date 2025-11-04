@@ -3,7 +3,8 @@
 
 #include <cstddef>
 #include <string>
-#include <vector>
+
+#include "dynamic_array.hpp"
 
 struct Cell {
     bool        occupied;
@@ -36,7 +37,7 @@ public:
 
     void clear();
     std::string toString() const;
-    std::vector<Entry> entries() const;
+    DynamicArray<Entry> entries() const;
 
     std::size_t capacity() const { return m_size; }
     std::size_t size() const { return m_count; }

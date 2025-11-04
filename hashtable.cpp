@@ -5,7 +5,6 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
-#include <vector>
 
 Cell::Cell()
     : occupied(false), key(), index(0) {}
@@ -47,7 +46,10 @@ HashTable& HashTable::operator=(HashTable&& other) noexcept {
 }
 
 HashTable::~HashTable() {
-    delete[] table;
+    if (table) {
+        delete[] table;
+        table = nullptr;
+    }
 }
 
 bool HashTable::insert(const std::string& key, std::size_t listIndex) {
@@ -126,7 +128,9 @@ bool HashTable::contains(const std::string& key) const {
 }
 
 void HashTable::clear() {
-    delete[] table;
+    if (table) {
+        delete[] table;
+    }
     table = new Cell[m_size];
     m_count = 0;
 }
@@ -152,8 +156,8 @@ std::string HashTable::toString() const {
     return out.str();
 }
 
-std::vector<HashTable::Entry> HashTable::entries() const {
-    std::vector<Entry> result;
+DynamicArray<HashTable::Entry> HashTable::entries() const {
+    DynamicArray<Entry> result;
     result.reserve(m_count);
     for (std::size_t i = 0; i < m_size; ++i) {
         if (!table[i].occupied) {

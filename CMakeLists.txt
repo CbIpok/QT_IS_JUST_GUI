@@ -13,6 +13,8 @@ add_library(cursedarch STATIC
     hashtable.cpp
     DoublyLinkedList.cpp
     data_integrator.cpp
+    date_utils.cpp
+    date_tree.cpp
 )
 
 target_include_directories(cursedarch

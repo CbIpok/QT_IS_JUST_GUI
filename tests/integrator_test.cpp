@@ -3,10 +3,12 @@
 #include <fstream>
 #include <gtest/gtest.h>
 #include <sstream>
+#include <stdexcept>
 #include <system_error>
 #include <string>
 
 #include "data_integrator.hpp"
+#include "date_utils.hpp"
 
 namespace {
 
@@ -34,6 +36,20 @@ void RemoveIfExists(const std::filesystem::path& path) {
     std::filesystem::remove(path, ec);
 }
 
+OrderRecord MakeOrder(const std::string& license,
+                      const std::string& address,
+                      const std::string& cost,
+                      const std::string& dateText) {
+    OrderRecord record{};
+    record.licenseNumber = license;
+    record.address = address;
+    record.cost = cost;
+    if (!parseDate(dateText, record.date)) {
+        throw std::runtime_error("Invalid date in test data");
+    }
+    return record;
+}
+
 }  // namespace
 
 TEST(DataIntegratorTest, IntegratorAddsDriverAndOrder) {
@@ -41,7 +57,7 @@ TEST(DataIntegratorTest, IntegratorAddsDriverAndOrder) {
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
     DriverRecord driver{"TK-25-111111-2023", "Novikova Daria", "BMW", 10};
-    OrderRecord order{driver.licenseNumber, "Ul. Lesnaya", "300 r.", "02 jan 2025"};
+    OrderRecord order = MakeOrder(driver.licenseNumber, "Ul. Lesnaya", "300 r.", "02 jan 2025");
 
     EXPECT_TRUE(integrator.addDriver(driver));
     EXPECT_TRUE(integrator.hasDriver(driver.licenseNumber));
@@ -63,7 +79,7 @@ TEST(DataIntegratorTest, IntegratorRejectsOrderWithoutDriver) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    OrderRecord order{"TK-25-333333-2025", "Ul. Mira", "500 r.", "05 feb 2025"};
+    OrderRecord order = MakeOrder("TK-25-333333-2025", "Ul. Mira", "500 r.", "05 feb 2025");
     EXPECT_FALSE(integrator.addOrder(order));
     EXPECT_EQ(integrator.orderCount(), 0u);
 }
@@ -73,8 +89,8 @@ TEST(DataIntegratorTest, IntegratorCascadesDriverRemoval) {
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
     DriverRecord driver{"TK-25-444444-2025", "Melnikov Igor", "Audi", 5};
-    OrderRecord o1{driver.licenseNumber, "Ul. Mira", "400 r.", "10 feb 2025"};
-    OrderRecord o2{driver.licenseNumber, "Ul. Lenina", "600 r.", "12 feb 2025"};
+    OrderRecord o1 = MakeOrder(driver.licenseNumber, "Ul. Mira", "400 r.", "10 feb 2025");
+    OrderRecord o2 = MakeOrder(driver.licenseNumber, "Ul. Lenina", "600 r.", "12 feb 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(o1));
@@ -93,9 +109,9 @@ TEST(DataIntegratorTest, IntegratorMaintainsIndicesAfterOrderRemoval) {
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
     DriverRecord driver{"TK-25-555555-2025", "Sokolov Petr", "VW", 0};
-    OrderRecord o1{driver.licenseNumber, "Street 1", "100 r.", "01 jan 2025"};
-    OrderRecord o2{driver.licenseNumber, "Street 2", "200 r.", "02 jan 2025"};
-    OrderRecord o3{driver.licenseNumber, "Street 3", "300 r.", "03 jan 2025"};
+    OrderRecord o1 = MakeOrder(driver.licenseNumber, "Street 1", "100 r.", "01 jan 2025");
+    OrderRecord o2 = MakeOrder(driver.licenseNumber, "Street 2", "200 r.", "02 jan 2025");
+    OrderRecord o3 = MakeOrder(driver.licenseNumber, "Street 3", "300 r.", "03 jan 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(o1));
@@ -115,8 +131,8 @@ TEST(DataIntegratorTest, IntegratorUpdatesOrderKey) {
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
     DriverRecord driver{"TK-25-666666-2025", "Alexeeva Olga", "Kia", 0};
-    OrderRecord original{driver.licenseNumber, "Old Street", "150 r.", "01 mar 2025"};
-    OrderRecord updated{driver.licenseNumber, "New Street", "155 r.", "02 mar 2025"};
+    OrderRecord original = MakeOrder(driver.licenseNumber, "Old Street", "150 r.", "01 mar 2025");
+    OrderRecord updated = MakeOrder(driver.licenseNumber, "New Street", "155 r.", "02 mar 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(original));
@@ -164,7 +180,7 @@ TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
     ASSERT_EQ(firstOrders.size(), 1u);
     EXPECT_EQ(firstOrders[0].address, "Basic Street 1");
     EXPECT_EQ(firstOrders[0].cost, "1000");
-    EXPECT_EQ(firstOrders[0].date, "2024-12-01");
+    EXPECT_EQ(formatDateStorage(firstOrders[0].date), "2024-12-01");
 
     auto lastDriver = integrator.findDriver("VB-149");
     ASSERT_TRUE(lastDriver.has_value());
@@ -241,8 +257,8 @@ TEST(DataIntegratorTest, IntegratorSavesToFile) {
     ASSERT_TRUE(integrator.addDriver(first));
     ASSERT_TRUE(integrator.addDriver(second));
 
-    OrderRecord orderA{first.licenseNumber, "Street 7", "100", "2024-12-31"};
-    OrderRecord orderB{second.licenseNumber, "Street 8", "200", "2025-01-01"};
+    OrderRecord orderA = MakeOrder(first.licenseNumber, "Street 7", "100", "2024-12-31");
+    OrderRecord orderB = MakeOrder(second.licenseNumber, "Street 8", "200", "2025-01-01");
     ASSERT_TRUE(integrator.addOrder(orderA));
     ASSERT_TRUE(integrator.addOrder(orderB));
 
@@ -291,7 +307,7 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     EXPECT_TRUE(integrator.updateOrder(original, updatedOrder));
 
     std::size_t initialOrderCount = integrator.orderCount();
-    OrderRecord newOrder{updatedDriver.licenseNumber, "Tverskaya 5", "3100", "2025-01-15"};
+    OrderRecord newOrder = MakeOrder(updatedDriver.licenseNumber, "Tverskaya 5", "3100", "2025-01-15");
     ASSERT_TRUE(integrator.addOrder(newOrder));
     EXPECT_EQ(integrator.orderCount(), initialOrderCount + 1);
 
@@ -326,10 +342,10 @@ TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
     ASSERT_TRUE(integrator.addDriver(beta));
     ASSERT_TRUE(integrator.addDriver(gamma));
 
-    OrderRecord orderA{alpha.licenseNumber, "Alpha Street", "100", "2025-04-01"};
-    OrderRecord orderB{beta.licenseNumber, "Beta Street", "200", "2025-04-02"};
-    OrderRecord orderC{gamma.licenseNumber, "Gamma Street", "300", "2025-04-03"};
-    OrderRecord orderD{alpha.licenseNumber, "Alpha Avenue", "400", "2025-04-04"};
+    OrderRecord orderA = MakeOrder(alpha.licenseNumber, "Alpha Street", "100", "2025-04-01");
+    OrderRecord orderB = MakeOrder(beta.licenseNumber, "Beta Street", "200", "2025-04-02");
+    OrderRecord orderC = MakeOrder(gamma.licenseNumber, "Gamma Street", "300", "2025-04-03");
+    OrderRecord orderD = MakeOrder(alpha.licenseNumber, "Alpha Avenue", "400", "2025-04-04");
 
     ASSERT_TRUE(integrator.addOrder(orderA));
     ASSERT_TRUE(integrator.addOrder(orderB));

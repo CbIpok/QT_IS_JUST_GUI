@@ -14,9 +14,9 @@
 #include <optional>
 #include <sstream>
 #include <string>
-#include <vector>
 
 #include "data_integrator.hpp"
+#include "date_utils.hpp"
 
 namespace {
 
@@ -118,7 +118,7 @@ IntegratorGUI::IntegratorGUI()
     const int windowWidth = 700;
     const int windowHeight = 700;
 
-    hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (хеш-таблица)");
+    hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (массив)");
     hashWindow_->begin();
 
     const int menuBarHeight = 32;
@@ -148,7 +148,7 @@ IntegratorGUI::IntegratorGUI()
     const int hashContentTop = menuBarHeight + 40;
     const int hashContentHeight = windowHeight - hashContentTop - 10;
 
-    Fl_Box* hashLabel = new Fl_Box(10, hashContentTop, windowWidth - 20, 25, "Хеш-таблица водителей");
+    Fl_Box* hashLabel = new Fl_Box(10, hashContentTop, windowWidth - 20, 25, "Водители (массив)");
     hashLabel->labelfont(FL_HELVETICA_BOLD);
     hashLabel->labelsize(14);
     hashLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
@@ -162,7 +162,7 @@ IntegratorGUI::IntegratorGUI()
     hashWindow_->end();
     hashWindow_->resizable(hashDisplay_);
 
-    treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (AVL-дерево)");
+    treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (массив)");
     treeWindow_->begin();
 
     treeMenuBar_ = new Fl_Menu_Bar(0, 0, windowWidth, menuBarHeight);
@@ -189,7 +189,7 @@ IntegratorGUI::IntegratorGUI()
     const int treeContentTop = menuBarHeight + 40;
     const int treeContentHeight = windowHeight - treeContentTop - 10;
 
-    Fl_Box* treeLabel = new Fl_Box(10, treeContentTop, windowWidth - 20, 25, "Дерево заказов (AVL)");
+    Fl_Box* treeLabel = new Fl_Box(10, treeContentTop, windowWidth - 20, 25, "Заказы (массив)");
     treeLabel->labelfont(FL_HELVETICA_BOLD);
     treeLabel->labelsize(14);
     treeLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
@@ -237,26 +237,18 @@ void IntegratorGUI::refreshDataViews() {
     if (hashStatusBox_) hashStatusBox_->copy_label(status.str().c_str());
     if (treeStatusBox_) treeStatusBox_->copy_label(status.str().c_str());
 
-    std::string hashText;
+    std::string driversText = integrator_.driversAsTable();
     if (!integrator_.hasDriverTable()) {
-        hashText = "Нет таблицы Водителей";
-    }
-    else {
-        hashText = integrator_.hashTableAsText();
-        if (hashText.empty()) hashText = "<пусто>";
+        driversText = "Хеш-таблица водителей не создана.\n" + driversText;
     }
 
-    std::string treeText;
+    std::string ordersText = integrator_.ordersAsTable();
     if (!integrator_.hasOrderTree()) {
-        treeText = "Нет таблицы Заказов";
-    }
-    else {
-        treeText = integrator_.orderTreeAsText();
-        if (treeText.empty()) treeText = "<пусто>";
+        ordersText = "Дерево заказов не создано.\n" + ordersText;
     }
 
-    hashBuffer_->text(hashText.c_str());
-    treeBuffer_->text(treeText.c_str());
+    hashBuffer_->text(driversText.c_str());
+    treeBuffer_->text(ordersText.c_str());
 }
 
 void IntegratorGUI::updateStatus(const std::string& message) {
@@ -390,10 +382,21 @@ std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial
     std::optional<std::string> cost = promptNonEmpty("Стоимость:", initial ? initial->cost : "");
     if (!cost) return std::nullopt;
 
-    std::optional<std::string> date = promptNonEmpty("Дата:", initial ? initial->date : "");
-    if (!date) return std::nullopt;
+    std::string dateCurrent = initial ? formatDateStorage(initial->date) : "";
+    Date parsedDate;
+    while (true) {
+        std::optional<std::string> dateInput = promptNonEmpty("Дата (например, 2025-02-15):", dateCurrent);
+        if (!dateInput) {
+            return std::nullopt;
+        }
+        if (parseDate(*dateInput, parsedDate)) {
+            break;
+        }
+        showError("Некорректная дата. Используйте формат YYYY-MM-DD или YYYY-Mon-DD.");
+        dateCurrent = *dateInput;
+    }
 
-    OrderRecord record{*license, *address, *cost, *date};
+    OrderRecord record{*license, *address, *cost, parsedDate};
     return record;
 }
 
@@ -694,7 +697,7 @@ void IntegratorGUI::handleUpdateOrder() {
     auto license = promptNonEmpty("Номер водителя для выбора заказа:");
     if (!license) return;
 
-    std::vector<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    DynamicArray<OrderRecord> orders = integrator_.ordersForDriver(*license);
     if (orders.empty()) {
         showError("Для выбранного водителя нет заказов.");
         return;
@@ -703,7 +706,7 @@ void IntegratorGUI::handleUpdateOrder() {
     std::ostringstream list;
     list << "Заказы водителя " << *license << ":\n\n";
     for (std::size_t i = 0; i < orders.size(); ++i) {
-        list << (i + 1) << ") " << orders[i].address << " | " << orders[i].cost << " | " << orders[i].date << "\n";
+        list << (i + 1) << ") " << orders[i].address << " | " << orders[i].cost << " | " << formatDateDisplay(orders[i].date) << "\n";
     }
     showInfo(list.str());
 
@@ -731,7 +734,7 @@ void IntegratorGUI::handleRemoveOrder() {
     auto license = promptNonEmpty("Номер водителя для удаления заказа:");
     if (!license) return;
 
-    std::vector<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    DynamicArray<OrderRecord> orders = integrator_.ordersForDriver(*license);
     if (orders.empty()) {
         showError("Для выбранного водителя нет заказов.");
         return;
@@ -740,7 +743,7 @@ void IntegratorGUI::handleRemoveOrder() {
     std::ostringstream list;
     list << "Заказы водителя " << *license << ":\n\n";
     for (std::size_t i = 0; i < orders.size(); ++i) {
-        list << (i + 1) << ") " << orders[i].address << " | " << orders[i].cost << " | " << orders[i].date << "\n";
+        list << (i + 1) << ") " << orders[i].address << " | " << orders[i].cost << " | " << formatDateDisplay(orders[i].date) << "\n";
     }
     showInfo(list.str());
 
@@ -770,7 +773,7 @@ void IntegratorGUI::handleShowOrders() {
     auto license = promptNonEmpty("Номер водителя для отображения заказов:");
     if (!license) return;
 
-    std::vector<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    DynamicArray<OrderRecord> orders = integrator_.ordersForDriver(*license);
     if (orders.empty()) {
         showInfo("У данного водителя нет заказов.");
         return;
@@ -779,7 +782,7 @@ void IntegratorGUI::handleShowOrders() {
     std::ostringstream list;
     list << "Заказы водителя " << *license << ":\n\n";
     for (const auto& order : orders) {
-        list << "- " << order.address << " | " << order.cost << " | " << order.date << "\n";
+        list << "- " << order.address << " | " << order.cost << " | " << formatDateDisplay(order.date) << "\n";
     }
     showInfo(list.str());
 }

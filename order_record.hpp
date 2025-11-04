@@ -3,11 +3,13 @@
 
 #include <string>
 
+#include "date_utils.hpp"
+
 struct OrderRecord {
     std::string licenseNumber;
     std::string address;
     std::string cost;
-    std::string date;
+    Date        date;
 };
 
 inline bool operator==(const OrderRecord& lhs, const OrderRecord& rhs) {
