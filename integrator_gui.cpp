@@ -200,6 +200,8 @@ private:
     Fl_Menu_Bar*      treeMenuBar_;
     DriverTableView*  driverTable_;
     OrderTableView*   orderTable_;
+    Fl_Button*        loadDriversButton_;
+    Fl_Button*        loadOrdersButton_;
     Fl_Button*        hashDebugButton_;
     Fl_Button*        treeDebugButton_;
     Fl_Button*        dateDebugButton_;
@@ -223,7 +225,8 @@ private:
                                                Fl_Native_File_Chooser::Type type,
                                                bool allowEmpty = false);
 
-    void handleLoad();
+    void handleLoadDrivers();
+    void handleLoadOrders();
     void handleSave();
     void handleSaveStructures();
     void handleClear();
@@ -247,7 +250,8 @@ private:
     void handleShowDateTree();
     void handleGenerateReport();
 
-    static void CallbackLoad(Fl_Widget*, void*);
+    static void CallbackLoadDrivers(Fl_Widget*, void*);
+    static void CallbackLoadOrders(Fl_Widget*, void*);
     static void CallbackSave(Fl_Widget*, void*);
     static void CallbackSaveStructures(Fl_Widget*, void*);
     static void CallbackClear(Fl_Widget*, void*);
@@ -278,6 +282,8 @@ IntegratorGUI::IntegratorGUI()
       treeMenuBar_(nullptr),
       driverTable_(nullptr),
       orderTable_(nullptr),
+      loadDriversButton_(nullptr),
+      loadOrdersButton_(nullptr),
       hashDebugButton_(nullptr),
       treeDebugButton_(nullptr),
       dateDebugButton_(nullptr),
@@ -294,7 +300,7 @@ IntegratorGUI::IntegratorGUI()
     hashMenuBar_->box(FL_THIN_UP_BOX);
     hashMenuBar_->color(fl_rgb_color(245, 245, 245));
     hashMenuBar_->textsize(13);
-    hashMenuBar_->add("Загр. из файла", 0, &IntegratorGUI::CallbackLoad, this);
+    hashMenuBar_->add("Загр. вод", 0, &IntegratorGUI::CallbackLoadDrivers, this);
     hashMenuBar_->add("Выгр. в файл", 0, &IntegratorGUI::CallbackSave, this);
     hashMenuBar_->add("Доб", 0, &IntegratorGUI::CallbackAddDriver, this);
     hashMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateDriver, this);
@@ -328,8 +334,12 @@ IntegratorGUI::IntegratorGUI()
 
     driverTable_ = new DriverTableView(10, driverTableTop, windowWidth - 20, driverTableHeight, integrator_);
 
-    hashDebugButton_ = new Fl_Button(10,
-                                     driverTableTop + driverTableHeight + driverButtonGap,
+    int driverButtonsTop = driverTableTop + driverTableHeight + driverButtonGap;
+    loadDriversButton_ = new Fl_Button(10, driverButtonsTop, 200, driverButtonHeight, "Загрузить водителей");
+    loadDriversButton_->callback(&IntegratorGUI::CallbackLoadDrivers, this);
+
+    hashDebugButton_ = new Fl_Button(220,
+                                     driverButtonsTop,
                                      200,
                                      driverButtonHeight,
                                      "Отладка хеш-таблицы");
@@ -345,6 +355,7 @@ IntegratorGUI::IntegratorGUI()
     treeMenuBar_->box(FL_THIN_UP_BOX);
     treeMenuBar_->color(fl_rgb_color(245, 245, 245));
     treeMenuBar_->textsize(13);
+    treeMenuBar_->add("Загр. зак", 0, &IntegratorGUI::CallbackLoadOrders, this);
     treeMenuBar_->add("Доб", 0, &IntegratorGUI::CallbackAddOrder, this);
     treeMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateOrder, this);
     treeMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackCheckOrder, this);
@@ -378,16 +389,20 @@ IntegratorGUI::IntegratorGUI()
 
     orderTable_ = new OrderTableView(10, orderTableTop, windowWidth - 20, orderTableHeight, integrator_);
 
-    treeDebugButton_ = new Fl_Button(10,
-                                     orderTableTop + orderTableHeight + orderButtonGap,
+    int orderButtonsTop = orderTableTop + orderTableHeight + orderButtonGap;
+    loadOrdersButton_ = new Fl_Button(10, orderButtonsTop, 200, orderButtonHeight, "Загрузить заказы");
+    loadOrdersButton_->callback(&IntegratorGUI::CallbackLoadOrders, this);
+
+    treeDebugButton_ = new Fl_Button(220,
+                                     orderButtonsTop,
                                      200,
                                      orderButtonHeight,
                                      "Отладка AVL (водители)");
     treeDebugButton_->callback(&IntegratorGUI::CallbackShowOrderTree, this);
 
-    dateDebugButton_ = new Fl_Button(220,
-                                     orderTableTop + orderTableHeight + orderButtonGap,
-                                     220,
+    dateDebugButton_ = new Fl_Button(430,
+                                     orderButtonsTop,
+                                     240,
                                      orderButtonHeight,
                                      "Отладка AVL (даты)");
     dateDebugButton_->callback(&IntegratorGUI::CallbackShowDateTree, this);
@@ -424,6 +439,10 @@ void IntegratorGUI::refreshDataViews() {
     if (hashDebugButton_) {
         if (integrator_.hasDriverTable()) hashDebugButton_->activate();
         else hashDebugButton_->deactivate();
+    }
+    if (loadOrdersButton_) {
+        if (integrator_.hasDriverTable()) loadOrdersButton_->activate();
+        else loadOrdersButton_->deactivate();
     }
     if (treeDebugButton_) {
         if (integrator_.hasOrderTree()) treeDebugButton_->activate();
@@ -655,9 +674,9 @@ std::optional<std::string> IntegratorGUI::promptFilePath(const char* dialogTitle
     return std::nullopt;
 }
 
-void IntegratorGUI::handleLoad() {
-    auto path = promptFilePath("Выбор файла конфигурации",
-                               "Введите путь к файлу конфигурации:",
+void IntegratorGUI::handleLoadDrivers() {
+    auto path = promptFilePath("Выбор файла водителей",
+                               "Введите путь к файлу водителей:",
                                Fl_Native_File_Chooser::BROWSE_FILE,
                                false);
     if (!path) return;
@@ -670,13 +689,35 @@ void IntegratorGUI::handleLoad() {
     auto sizeOpt = promptInt("Начальный размер хеш-таблицы:", defaultSize, 1);
     if (!sizeOpt) return;
 
-    if (integrator_.loadFromFile(*path, static_cast<std::size_t>(*sizeOpt))) {
-        updateStatus("Файл успешно загружен.");
+    if (integrator_.loadDriversFromFile(*path, static_cast<std::size_t>(*sizeOpt))) {
+        updateStatus("Файл водителей загружен.");
         refreshDataViews();
-        showInfo("Данные загружены.");
+        showInfo("Водители загружены. Заказы очищены.");
     }
     else {
-        showError("Не удалось загрузить файл.");
+        showError("Не удалось загрузить файл водителей.");
+    }
+}
+
+void IntegratorGUI::handleLoadOrders() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Сначала загрузите или создайте хеш-таблицу водителей.");
+        return;
+    }
+
+    auto path = promptFilePath("Выбор файла заказов",
+                               "Введите путь к файлу заказов:",
+                               Fl_Native_File_Chooser::BROWSE_FILE,
+                               false);
+    if (!path) return;
+
+    if (integrator_.loadOrdersFromFile(*path)) {
+        updateStatus("Файл заказов загружен.");
+        refreshDataViews();
+        showInfo("Заказы загружены.");
+    }
+    else {
+        showError("Не удалось загрузить файл заказов. Проверьте данные и наличие водителей.");
     }
 }
 
@@ -1064,8 +1105,12 @@ void IntegratorGUI::handleGenerateReport() {
     showTextWindow("Отчёт по водителю", text);
 }
 
-void IntegratorGUI::CallbackLoad(Fl_Widget*, void* data) {
-    static_cast<IntegratorGUI*>(data)->handleLoad();
+void IntegratorGUI::CallbackLoadDrivers(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleLoadDrivers();
+}
+
+void IntegratorGUI::CallbackLoadOrders(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleLoadOrders();
 }
 
 void IntegratorGUI::CallbackSave(Fl_Widget*, void* data) {
