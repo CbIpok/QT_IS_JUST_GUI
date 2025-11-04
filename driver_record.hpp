@@ -7,14 +7,12 @@ struct DriverRecord {
     std::string licenseNumber; // unique driver license number (key)
     std::string fio;           // driver's full name
     std::string carBrand;      // vehicle brand
-    int         originalLine;  // line in input file (or -1 if manual)
 };
 
 inline bool operator==(const DriverRecord& lhs, const DriverRecord& rhs) {
     return lhs.licenseNumber == rhs.licenseNumber &&
-           lhs.fio == rhs.fio &&
-           lhs.carBrand == rhs.carBrand &&
-           lhs.originalLine == rhs.originalLine;
+        lhs.fio == rhs.fio &&
+        lhs.carBrand == rhs.carBrand;
 }
 
 inline bool operator!=(const DriverRecord& lhs, const DriverRecord& rhs) {
