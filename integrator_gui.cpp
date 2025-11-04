@@ -4,21 +4,181 @@
 
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
+#include <FL/Fl_Button.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Menu_Bar.H>
 #include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
+#include <FL/Fl_Table_Row.H>
 #include <FL/fl_ask.H>
+#include <FL/fl_draw.H>
 
 #include <optional>
 #include <sstream>
 #include <string>
-#include <vector>
 
 #include "data_integrator.hpp"
 
 namespace {
+
+class DriverTableView : public Fl_Table_Row {
+public:
+    DriverTableView(int X, int Y, int W, int H, DataIntegrator& integrator)
+        : Fl_Table_Row(X, Y, W, H), integrator_(integrator) {
+        row_header(1);
+        row_header_width(40);
+        col_header(1);
+        col_header_height(26);
+        cols(4);
+        col_width(0, 160);
+        col_width(1, 220);
+        col_width(2, 140);
+        col_width(3, 80);
+        end();
+    }
+
+    void refresh() {
+        rows(static_cast<int>(integrator_.driverCount()));
+        redraw();
+    }
+
+protected:
+    void draw_cell(TableContext context, int row, int col, int x, int y, int w, int h) override {
+        switch (context) {
+            case CONTEXT_ROW_HEADER: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                std::string label = std::to_string(row + 1);
+                fl_draw(label.c_str(), x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_COL_HEADER: {
+                static const char* headers[] = {"Лицензия", "ФИО", "Авто", "Строка"};
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                fl_draw(headers[col], x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_CELL: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_FLAT_BOX, x, y, w, h, FL_WHITE);
+                fl_color(FL_BLACK);
+                auto recordOpt = integrator_.driverAt(static_cast<std::size_t>(row));
+                if (recordOpt.has_value()) {
+                    const DriverRecord& driver = recordOpt.value();
+                    std::string text;
+                    switch (col) {
+                        case 0: text = driver.licenseNumber; break;
+                        case 1: text = driver.fio; break;
+                        case 2: text = driver.carBrand; break;
+                        case 3: text = std::to_string(driver.originalLine); break;
+                        default: break;
+                    }
+                    fl_draw(text.c_str(), x + 4, y + h - 6);
+                }
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_RC_RESIZE: {
+                int totalWidth = w > 0 ? w : this->w();
+                col_width(0, totalWidth * 0.28);
+                col_width(1, totalWidth * 0.38);
+                col_width(2, totalWidth * 0.22);
+                col_width(3, totalWidth * 0.12);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+private:
+    DataIntegrator& integrator_;
+};
+
+class OrderTableView : public Fl_Table_Row {
+public:
+    OrderTableView(int X, int Y, int W, int H, DataIntegrator& integrator)
+        : Fl_Table_Row(X, Y, W, H), integrator_(integrator) {
+        row_header(1);
+        row_header_width(40);
+        col_header(1);
+        col_header_height(26);
+        cols(4);
+        col_width(0, 140);
+        col_width(1, 220);
+        col_width(2, 120);
+        col_width(3, 140);
+        end();
+    }
+
+    void refresh() {
+        rows(static_cast<int>(integrator_.orderCount()));
+        redraw();
+    }
+
+protected:
+    void draw_cell(TableContext context, int row, int col, int x, int y, int w, int h) override {
+        switch (context) {
+            case CONTEXT_ROW_HEADER: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                std::string label = std::to_string(row + 1);
+                fl_draw(label.c_str(), x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_COL_HEADER: {
+                static const char* headers[] = {"Лицензия", "Адрес", "Цена", "Дата"};
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                fl_draw(headers[col], x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_CELL: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_FLAT_BOX, x, y, w, h, FL_WHITE);
+                fl_color(FL_BLACK);
+                auto recordOpt = integrator_.orderAt(static_cast<std::size_t>(row));
+                if (recordOpt.has_value()) {
+                    const OrderRecord& order = recordOpt.value();
+                    std::string text;
+                    switch (col) {
+                        case 0: text = order.licenseNumber; break;
+                        case 1: text = order.address; break;
+                        case 2: text = order.cost; break;
+                        case 3: text = order.date.displayString(); break;
+                        default: break;
+                    }
+                    fl_draw(text.c_str(), x + 4, y + h - 6);
+                }
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_RC_RESIZE: {
+                int totalWidth = w > 0 ? w : this->w();
+                col_width(0, totalWidth * 0.24);
+                col_width(1, totalWidth * 0.36);
+                col_width(2, totalWidth * 0.18);
+                col_width(3, totalWidth * 0.22);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+private:
+    DataIntegrator& integrator_;
+};
 
 class IntegratorGUI {
 public:
@@ -34,10 +194,11 @@ private:
     Fl_Double_Window* treeWindow_;
     Fl_Menu_Bar*      hashMenuBar_;
     Fl_Menu_Bar*      treeMenuBar_;
-    Fl_Text_Display*  hashDisplay_;
-    Fl_Text_Display*  treeDisplay_;
-    Fl_Text_Buffer*   hashBuffer_;
-    Fl_Text_Buffer*   treeBuffer_;
+    DriverTableView*  driverTable_;
+    OrderTableView*   orderTable_;
+    Fl_Button*        hashDebugButton_;
+    Fl_Button*        treeDebugButton_;
+    Fl_Button*        dateDebugButton_;
     Fl_Box*           hashStatusBox_;
     Fl_Box*           treeStatusBox_;
 
@@ -79,6 +240,7 @@ private:
     void handleCreateOrderTree();
     void handleClearOrderTreeOnly();
     void handleShowOrderTree();
+    void handleShowOrderDateTree();
     void handleGenerateReport();
 
     static void CallbackLoad(Fl_Widget*, void*);
@@ -100,6 +262,7 @@ private:
     static void CallbackCreateOrderTree(Fl_Widget*, void*);
     static void CallbackClearOrderTreeOnly(Fl_Widget*, void*);
     static void CallbackShowOrderTree(Fl_Widget*, void*);
+    static void CallbackShowOrderDateTree(Fl_Widget*, void*);
     static void CallbackGenerateReport(Fl_Widget*, void*);
 };
 
@@ -109,10 +272,11 @@ IntegratorGUI::IntegratorGUI()
       treeWindow_(nullptr),
       hashMenuBar_(nullptr),
       treeMenuBar_(nullptr),
-      hashDisplay_(nullptr),
-      treeDisplay_(nullptr),
-      hashBuffer_(nullptr),
-      treeBuffer_(nullptr),
+      driverTable_(nullptr),
+      orderTable_(nullptr),
+      hashDebugButton_(nullptr),
+      treeDebugButton_(nullptr),
+      dateDebugButton_(nullptr),
       hashStatusBox_(nullptr),
       treeStatusBox_(nullptr) {
     const int windowWidth = 700;
@@ -153,14 +317,22 @@ IntegratorGUI::IntegratorGUI()
     hashLabel->labelsize(14);
     hashLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
 
-    hashDisplay_ = new Fl_Text_Display(10, hashContentTop + 25, windowWidth - 20, hashContentHeight - 25);
-    hashDisplay_->box(FL_DOWN_BOX);
-    hashDisplay_->textfont(FL_COURIER);
-    hashDisplay_->textsize(13);
-    hashDisplay_->wrap_mode(Fl_Text_Display::WRAP_AT_BOUNDS, 0);
+    const int driverTableTop = hashContentTop + 25;
+    const int driverButtonHeight = 30;
+    const int driverButtonGap = 10;
+    const int driverTableHeight = hashContentHeight - 25 - driverButtonHeight - driverButtonGap;
+
+    driverTable_ = new DriverTableView(10, driverTableTop, windowWidth - 20, driverTableHeight, integrator_);
+
+    hashDebugButton_ = new Fl_Button(10,
+                                     driverTableTop + driverTableHeight + driverButtonGap,
+                                     200,
+                                     driverButtonHeight,
+                                     "Отладка хеш-таблицы");
+    hashDebugButton_->callback(&IntegratorGUI::CallbackShowDriverTable, this);
 
     hashWindow_->end();
-    hashWindow_->resizable(hashDisplay_);
+    hashWindow_->resizable(driverTable_);
 
     treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (AVL-дерево)");
     treeWindow_->begin();
@@ -175,6 +347,7 @@ IntegratorGUI::IntegratorGUI()
     treeMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveOrder, this);
     treeMenuBar_->add("Отч", 0, &IntegratorGUI::CallbackShowOrders, this);
     treeMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowOrderTree, this);
+    treeMenuBar_->add("Табл дат", 0, &IntegratorGUI::CallbackShowOrderDateTree, this);
     treeMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateOrderTree, this);
     treeMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearOrderTreeOnly, this);
     treeMenuBar_->add("Заказы (Генерация отчётов)", 0, &IntegratorGUI::CallbackGenerateReport, this);
@@ -194,30 +367,32 @@ IntegratorGUI::IntegratorGUI()
     treeLabel->labelsize(14);
     treeLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
 
-    treeDisplay_ = new Fl_Text_Display(10, treeContentTop + 25, windowWidth - 20, treeContentHeight - 25);
-    treeDisplay_->box(FL_DOWN_BOX);
-    treeDisplay_->textfont(FL_COURIER);
-    treeDisplay_->textsize(13);
-    treeDisplay_->wrap_mode(Fl_Text_Display::WRAP_AT_BOUNDS, 0);
+    const int orderTableTop = treeContentTop + 25;
+    const int orderButtonHeight = 30;
+    const int orderButtonGap = 10;
+    const int orderTableHeight = treeContentHeight - 25 - orderButtonHeight - orderButtonGap;
+
+    orderTable_ = new OrderTableView(10, orderTableTop, windowWidth - 20, orderTableHeight, integrator_);
+
+    treeDebugButton_ = new Fl_Button(10,
+                                     orderTableTop + orderTableHeight + orderButtonGap,
+                                     200,
+                                     orderButtonHeight,
+                                     "Отладка AVL (водители)");
+    treeDebugButton_->callback(&IntegratorGUI::CallbackShowOrderTree, this);
+
+    dateDebugButton_ = new Fl_Button(220,
+                                     orderTableTop + orderTableHeight + orderButtonGap,
+                                     220,
+                                     orderButtonHeight,
+                                     "Отладка AVL (даты)");
+    dateDebugButton_->callback(&IntegratorGUI::CallbackShowOrderDateTree, this);
 
     treeWindow_->end();
-    treeWindow_->resizable(treeDisplay_);
-
-    hashBuffer_ = new Fl_Text_Buffer();
-    treeBuffer_ = new Fl_Text_Buffer();
-    hashDisplay_->buffer(hashBuffer_);
-    treeDisplay_->buffer(treeBuffer_);
+    treeWindow_->resizable(orderTable_);
 }
 
 IntegratorGUI::~IntegratorGUI() {
-    if (hashDisplay_) {
-        hashDisplay_->buffer(nullptr);
-    }
-    if (treeDisplay_) {
-        treeDisplay_->buffer(nullptr);
-    }
-    delete hashBuffer_;
-    delete treeBuffer_;
     delete hashWindow_;
     delete treeWindow_;
 }
@@ -229,34 +404,31 @@ void IntegratorGUI::show() {
 }
 
 void IntegratorGUI::refreshDataViews() {
-    if (!hashBuffer_ || !treeBuffer_) return;
-
     std::ostringstream status;
     status << "Водителей: " << integrator_.driverCount()
            << " | Заказов: " << integrator_.orderCount();
     if (hashStatusBox_) hashStatusBox_->copy_label(status.str().c_str());
     if (treeStatusBox_) treeStatusBox_->copy_label(status.str().c_str());
 
-    std::string hashText;
-    if (!integrator_.hasDriverTable()) {
-        hashText = "Нет таблицы Водителей";
+    if (driverTable_) {
+        driverTable_->refresh();
     }
-    else {
-        hashText = integrator_.hashTableAsText();
-        if (hashText.empty()) hashText = "<пусто>";
+    if (orderTable_) {
+        orderTable_->refresh();
     }
 
-    std::string treeText;
-    if (!integrator_.hasOrderTree()) {
-        treeText = "Нет таблицы Заказов";
+    if (hashDebugButton_) {
+        if (integrator_.hasDriverTable()) hashDebugButton_->activate();
+        else hashDebugButton_->deactivate();
     }
-    else {
-        treeText = integrator_.orderTreeAsText();
-        if (treeText.empty()) treeText = "<пусто>";
+    if (treeDebugButton_) {
+        if (integrator_.hasOrderTree()) treeDebugButton_->activate();
+        else treeDebugButton_->deactivate();
     }
-
-    hashBuffer_->text(hashText.c_str());
-    treeBuffer_->text(treeText.c_str());
+    if (dateDebugButton_) {
+        if (integrator_.hasOrderTree()) dateDebugButton_->activate();
+        else dateDebugButton_->deactivate();
+    }
 }
 
 void IntegratorGUI::updateStatus(const std::string& message) {
@@ -390,10 +562,26 @@ std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial
     std::optional<std::string> cost = promptNonEmpty("Стоимость:", initial ? initial->cost : "");
     if (!cost) return std::nullopt;
 
-    std::optional<std::string> date = promptNonEmpty("Дата:", initial ? initial->date : "");
-    if (!date) return std::nullopt;
+    std::string datePromptDefault;
+    if (initial && initial->date.isValid()) {
+        datePromptDefault = initial->date.displayString();
+    }
 
-    OrderRecord record{*license, *address, *cost, *date};
+    std::string currentDate = datePromptDefault;
+    OrderDate parsedDate{};
+    while (true) {
+        std::optional<std::string> dateInput = promptNonEmpty("Дата (YYYY-MM-DD или DD Mon YYYY):", currentDate);
+        if (!dateInput) {
+            return std::nullopt;
+        }
+        if (OrderDate::parse(*dateInput, parsedDate)) {
+            break;
+        }
+        showError("Введите корректную дату в формате YYYY-MM-DD или DD Mon YYYY.");
+        currentDate = *dateInput;
+    }
+
+    OrderRecord record{*license, *address, *cost, parsedDate};
     return record;
 }
 
@@ -694,7 +882,7 @@ void IntegratorGUI::handleUpdateOrder() {
     auto license = promptNonEmpty("Номер водителя для выбора заказа:");
     if (!license) return;
 
-    std::vector<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
     if (orders.empty()) {
         showError("Для выбранного водителя нет заказов.");
         return;
@@ -703,7 +891,8 @@ void IntegratorGUI::handleUpdateOrder() {
     std::ostringstream list;
     list << "Заказы водителя " << *license << ":\n\n";
     for (std::size_t i = 0; i < orders.size(); ++i) {
-        list << (i + 1) << ") " << orders[i].address << " | " << orders[i].cost << " | " << orders[i].date << "\n";
+        const OrderRecord& order = orders[i];
+        list << (i + 1) << ") " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
     }
     showInfo(list.str());
 
@@ -731,7 +920,7 @@ void IntegratorGUI::handleRemoveOrder() {
     auto license = promptNonEmpty("Номер водителя для удаления заказа:");
     if (!license) return;
 
-    std::vector<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
     if (orders.empty()) {
         showError("Для выбранного водителя нет заказов.");
         return;
@@ -740,7 +929,8 @@ void IntegratorGUI::handleRemoveOrder() {
     std::ostringstream list;
     list << "Заказы водителя " << *license << ":\n\n";
     for (std::size_t i = 0; i < orders.size(); ++i) {
-        list << (i + 1) << ") " << orders[i].address << " | " << orders[i].cost << " | " << orders[i].date << "\n";
+        const OrderRecord& order = orders[i];
+        list << (i + 1) << ") " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
     }
     showInfo(list.str());
 
@@ -770,7 +960,7 @@ void IntegratorGUI::handleShowOrders() {
     auto license = promptNonEmpty("Номер водителя для отображения заказов:");
     if (!license) return;
 
-    std::vector<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
     if (orders.empty()) {
         showInfo("У данного водителя нет заказов.");
         return;
@@ -778,8 +968,9 @@ void IntegratorGUI::handleShowOrders() {
 
     std::ostringstream list;
     list << "Заказы водителя " << *license << ":\n\n";
-    for (const auto& order : orders) {
-        list << "- " << order.address << " | " << order.cost << " | " << order.date << "\n";
+    for (std::size_t i = 0; i < orders.size(); ++i) {
+        const OrderRecord& order = orders[i];
+        list << "- " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
     }
     showInfo(list.str());
 }
@@ -835,24 +1026,36 @@ void IntegratorGUI::handleShowOrderTree() {
     showTextWindow("Дерево заказов", text);
 }
 
+void IntegratorGUI::handleShowOrderDateTree() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    std::string text = integrator_.orderDateTreeAsText();
+    if (text.empty()) {
+        text = "<пусто>";
+    }
+    showTextWindow("Дерево заказов по датам", text);
+}
+
 void IntegratorGUI::handleGenerateReport() {
     if (!integrator_.hasDriverTable() || !integrator_.hasOrderTree()) {
         showError("Создайте обе структуры данных перед формированием отчёта.");
         return;
     }
 
-    auto license = promptNonEmpty("Номер лицензии для отчёта:");
+    auto license = promptString("Номер лицензии для отчёта (можно оставить пустым):", "");
     if (!license) return;
-    auto carBrand = promptNonEmpty("Марка автомобиля:");
+    auto carBrand = promptString("Марка автомобиля (можно оставить пустым):", "");
     if (!carBrand) return;
-    auto address = promptNonEmpty("Адрес заказа:");
+    auto address = promptString("Адрес заказа (можно оставить пустым):", "");
     if (!address) return;
     auto fromDate = promptString("Начальная дата (включительно, можно оставить пустым):", "");
     if (!fromDate) return;
     auto toDate = promptString("Конечная дата (включительно, можно оставить пустым):", "");
     if (!toDate) return;
 
-    auto entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
+    DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
     std::string text = integrator_.formatReport(entries);
     showTextWindow("Отчёт по водителю", text);
 }
@@ -931,6 +1134,10 @@ void IntegratorGUI::CallbackClearOrderTreeOnly(Fl_Widget*, void* data) {
 
 void IntegratorGUI::CallbackShowOrderTree(Fl_Widget*, void* data) {
     static_cast<IntegratorGUI*>(data)->handleShowOrderTree();
+}
+
+void IntegratorGUI::CallbackShowOrderDateTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowOrderDateTree();
 }
 
 void IntegratorGUI::CallbackGenerateReport(Fl_Widget*, void* data) {

@@ -5,7 +5,6 @@
 #include <iostream>
 #include <sstream>
 #include <utility>
-#include <vector>
 
 Cell::Cell()
     : occupied(false), key(), index(0) {}
@@ -152,9 +151,8 @@ std::string HashTable::toString() const {
     return out.str();
 }
 
-std::vector<HashTable::Entry> HashTable::entries() const {
-    std::vector<Entry> result;
-    result.reserve(m_count);
+DoublyLinkedList<HashTable::Entry> HashTable::entries() const {
+    DoublyLinkedList<Entry> result;
     for (std::size_t i = 0; i < m_size; ++i) {
         if (!table[i].occupied) {
             continue;
