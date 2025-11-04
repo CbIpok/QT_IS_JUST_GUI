@@ -49,7 +49,6 @@ private:
     double      m_maxLoadFactor;
     double      m_minLoadFactor;
     Cell*       table;
-
     std::size_t hashPrimary(const std::string& key) const;
     std::size_t hashSecondary(std::size_t base, const std::string& key, std::size_t iteration) const;
     void        rehash(std::size_t newSize);

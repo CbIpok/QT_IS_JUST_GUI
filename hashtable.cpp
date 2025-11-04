@@ -164,12 +164,13 @@ DoublyLinkedList<HashTable::Entry> HashTable::entries() const {
 
 std::size_t HashTable::hashPrimary(const std::string& key) const {
     static constexpr std::uint64_t MUL = 11400714819323198485ULL;
-    static std::hash<std::string> hasher;
-    std::uint64_t k = hasher(key);
+    std::uint64_t k = 0;
+    for (unsigned char c : key) { k = (k*31) + c; }
     std::uint64_t h = k * MUL;
     std::size_t idx = static_cast<std::size_t>(h % m_size);
     return idx;
 }
+
 
 std::size_t HashTable::hashSecondary(std::size_t base, const std::string& key, std::size_t iteration) const {
     std::size_t idx = (base + iteration) % m_size;

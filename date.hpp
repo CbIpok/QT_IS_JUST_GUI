@@ -35,18 +35,11 @@ struct Date {
     }
 };
 
-// Вспомогательные функции, если вдруг пригодятся
-inline Month monthFromNumber(int m) {
-    if (m < 1) m = 1;
-    if (m > 12) m = 12;
-    return static_cast<Month>(m);
+inline bool operator==(const Date& lhs, const Date& rhs) {
+    return lhs.day == rhs.day &&
+        lhs.month == rhs.month &&
+        lhs.year == rhs.year;
 }
-
-inline const char* monthShortName(Month m) {
-    static const char* MONTH_NAMES[12] = {
-        "Jan","Feb","Mar","Apr","May","Jun",
-        "Jul","Aug","Sep","Oct","Nov","Dec"
-    };
-    int i = static_cast<int>(m) - 1;
-    return (i >= 0 && i < 12) ? MONTH_NAMES[i] : "???";
+inline bool operator!=(const Date& lhs, const Date& rhs) {
+    return !(lhs == rhs);
 }
