@@ -235,6 +235,13 @@ void DataIntegrator::clearDriverTable() {
     drivers_.clear();
     driverTable_ = HashTable(defaultDriverTableSize_, driverTableMaxLoadFactor_);
     driverTableReady_ = false;
+
+    orders_.clear();
+    avl_free(&orderTree_);
+    avl_init(&orderTree_);
+    avl_free(&orderDateTree_);
+    avl_init(&orderDateTree_);
+    orderTreeReady_ = false;
 }
 
 void DataIntegrator::clearOrderTree() {

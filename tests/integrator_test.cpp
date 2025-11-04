@@ -133,6 +133,31 @@ TEST(DataIntegratorTest, IntegratorMaintainsIndicesAfterOrderRemoval) {
     EXPECT_EQ(orders[1].address, o3.address);
 }
 
+TEST(DataIntegratorTest, ClearDriverTableRemovesOrdersAndTrees) {
+    DataIntegrator integrator;
+    ASSERT_TRUE(integrator.createDriverTable(16));
+    ASSERT_TRUE(integrator.createOrderTree());
+    DriverRecord driver{"TK-25-CLR-2025", "Cleanup User", "VW", 0};
+    OrderRecord o1 = MakeOrder(driver.licenseNumber, "Street 1", "100 r.", "01 jan 2025");
+    OrderRecord o2 = MakeOrder(driver.licenseNumber, "Street 2", "200 r.", "02 jan 2025");
+
+    ASSERT_TRUE(integrator.addDriver(driver));
+    ASSERT_TRUE(integrator.addOrder(o1));
+    ASSERT_TRUE(integrator.addOrder(o2));
+    EXPECT_EQ(integrator.driverCount(), 1u);
+    EXPECT_EQ(integrator.orderCount(), 2u);
+
+    integrator.clearDriverTable();
+
+    EXPECT_FALSE(integrator.hasDriverTable());
+    EXPECT_FALSE(integrator.hasOrderTree());
+    EXPECT_EQ(integrator.driverCount(), 0u);
+    EXPECT_EQ(integrator.orderCount(), 0u);
+    EXPECT_FALSE(integrator.hasOrder(o1));
+    EXPECT_FALSE(integrator.hasOrder(o2));
+    EXPECT_TRUE(integrator.ordersForDriver(driver.licenseNumber).empty());
+}
+
 TEST(DataIntegratorTest, IntegratorUpdatesOrderKey) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
