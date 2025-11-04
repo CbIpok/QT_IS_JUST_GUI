@@ -258,8 +258,11 @@ TEST(DataIntegratorUseCasesTest, UseCase12_CreateAndClearStructures) {
 
     integrator.clearDriverTable();
     EXPECT_FALSE(integrator.hasDriverTable());
+    EXPECT_FALSE(integrator.hasOrderTree());
     EXPECT_EQ(integrator.driverCount(), 0u);
-    EXPECT_EQ(integrator.orderCount(), 1u);
+    EXPECT_EQ(integrator.orderCount(), 0u);
+    EXPECT_FALSE(integrator.hasOrder(order));
+    EXPECT_TRUE(integrator.ordersForDriver(driver.licenseNumber).empty());
 
     integrator.clearOrderTree();
     EXPECT_FALSE(integrator.hasOrderTree());
