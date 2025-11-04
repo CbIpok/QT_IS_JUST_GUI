@@ -34,11 +34,10 @@ public:
         row_header_width(40);
         col_header(1);
         col_header_height(26);
-        cols(4);
-        col_width(0, 160);
-        col_width(1, 220);
-        col_width(2, 140);
-        col_width(3, 80);
+        cols(3);
+        col_width(0, 180);
+        col_width(1, 240);
+        col_width(2, 160);
         end();
     }
 
@@ -60,7 +59,7 @@ protected:
                 break;
             }
             case CONTEXT_COL_HEADER: {
-                static const char* headers[] = {"Лицензия", "ФИО", "Авто", "Строка"};
+                static const char* headers[] = {"Лицензия", "ФИО", "Авто"};
                 fl_push_clip(x, y, w, h);
                 fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
                 fl_color(FL_BLACK);
@@ -80,7 +79,6 @@ protected:
                         case 0: text = driver.licenseNumber; break;
                         case 1: text = driver.fio; break;
                         case 2: text = driver.carBrand; break;
-                        case 3: text = std::to_string(driver.originalLine); break;
                         default: break;
                     }
                     fl_draw(text.c_str(), x + 4, y + h - 6);
@@ -90,10 +88,9 @@ protected:
             }
             case CONTEXT_RC_RESIZE: {
                 int totalWidth = w > 0 ? w : this->w();
-                col_width(0, totalWidth * 0.28);
-                col_width(1, totalWidth * 0.38);
-                col_width(2, totalWidth * 0.22);
-                col_width(3, totalWidth * 0.12);
+                col_width(0, totalWidth * 0.32);
+                col_width(1, totalWidth * 0.42);
+                col_width(2, totalWidth * 0.26);
                 break;
             }
             default:
@@ -554,10 +551,7 @@ std::optional<DriverRecord> IntegratorGUI::promptDriver(const DriverRecord* init
     std::optional<std::string> carBrand = promptNonEmpty("Марка автомобиля:", initial ? initial->carBrand : "");
     if (!carBrand) return std::nullopt;
 
-    std::optional<int> originalLine = promptInt("Номер строки в исходном файле (-1 если ввод вручную):", initial ? initial->originalLine : -1, -1);
-    if (!originalLine) return std::nullopt;
-
-    DriverRecord record{*license, *fio, *carBrand, *originalLine};
+    DriverRecord record{*license, *fio, *carBrand};
     return record;
 }
 
@@ -889,8 +883,7 @@ void IntegratorGUI::handleFindDriver() {
     std::ostringstream info;
     info << "Лицензия: " << stored->licenseNumber << "\n"
          << "ФИО: " << stored->fio << "\n"
-         << "Марка: " << stored->carBrand << "\n"
-         << "Исходная строка: " << stored->originalLine;
+         << "Марка: " << stored->carBrand;
     showInfo(info.str());
 }
 

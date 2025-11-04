@@ -48,29 +48,18 @@ bool splitLine(const std::string& line, char delimiter, std::string* fields, std
 }
 
 bool parseDriverLine(const std::string& line, DriverRecord& out) {
-    std::string parts[4];
-    if (!splitLine(line, '|', parts, 4)) return false;
-    for (std::size_t i = 0; i < 4; ++i) {
+    std::string parts[3];
+    if (!splitLine(line, '|', parts, 3)) return false;
+    for (std::size_t i = 0; i < 3; ++i) {
         trimCarriageReturn(parts[i]);
         stripUtf8Bom(parts[i]);
     }
-
-    std::size_t consumed = 0;
-    int originalLine = 0;
-    try {
-        originalLine = std::stoi(parts[3], &consumed);
-    }
-    catch (...) {
-        return false;
-    }
-    if (consumed != parts[3].size()) return false;
 
     if (parts[0].empty()) return false;
 
     out.licenseNumber = parts[0];
     out.fio = parts[1];
     out.carBrand = parts[2];
-    out.originalLine = originalLine;
     return true;
 }
 
@@ -833,7 +822,7 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
 
     output << "drivers " << drivers_.size() << '\n';
     drivers_.for_each([&](const DriverRecord& driver, std::size_t) {
-        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '|' << driver.originalLine << '\n';
+        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '\n';
     });
 
     output << "orders " << orders_.size() << '\n';
@@ -876,7 +865,6 @@ std::string DataIntegrator::hashTableAsText() const {
         out << '[' << entry.slot << "] " << driver.licenseNumber
             << " | ФИО: " << driver.fio
             << " | Авто: " << driver.carBrand
-            << " | Строка: " << driver.originalLine
             << " | Заказов: " << orderCount << '\n';
     });
 
@@ -1019,7 +1007,6 @@ bool DataIntegrator::validateDriverRecord(const DriverRecord& record) const {
     if (record.licenseNumber.empty()) return false;
     if (record.fio.empty()) return false;
     if (record.carBrand.empty()) return false;
-    if (record.originalLine < -1) return false;
     return true;
 }
 
