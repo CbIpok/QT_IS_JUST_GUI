@@ -1,3 +1,7 @@
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #if defined(_WIN32) && !defined(WIN32)
 #define WIN32
 #endif
@@ -1147,6 +1151,10 @@ void IntegratorGUI::CallbackGenerateReport(Fl_Widget*, void* data) {
 } // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
     (void)argc;
     (void)argv;
     Fl::scheme("plastic");
