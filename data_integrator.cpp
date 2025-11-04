@@ -6,7 +6,6 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <unordered_set>
 #include <utility>
 
 namespace {
@@ -524,7 +523,13 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
     }
 
     std::size_t tableCapacity = driverTable_.capacity();
-    if (initialDriverTableSize > 0) {
+    if (!driverTableReady_) {
+        if (initialDriverTableSize == 0) {
+            return false;
+        }
+        tableCapacity = initialDriverTableSize;
+    }
+    else if (initialDriverTableSize > 0) {
         tableCapacity = initialDriverTableSize;
     }
 
@@ -613,21 +618,16 @@ bool DataIntegrator::loadDriversFromFile(const std::string& path, std::size_t in
 
     bool createdDriverTable = false;
     if (!driverTableReady_) {
-        std::size_t capacity = initialDriverTableSize;
-        if (capacity == 0) {
-            capacity = driverTable_.capacity();
+        if (initialDriverTableSize == 0) {
+            return false;
         }
-        if (capacity == 0) {
-            capacity = defaultDriverTableSize_;
+        if (!createDriverTable(initialDriverTableSize)) {
+            return false;
         }
-        if (capacity == 0) {
-            capacity = std::max<std::size_t>(1u, parsedDrivers.size());
-        }
-        createDriverTable(capacity);
         createdDriverTable = true;
     }
 
-    std::unordered_set<std::string> newLicenses;
+    DoublyLinkedList<std::string> newLicenses;
     bool driversValid = true;
     parsedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
         if (!driversValid) {
@@ -637,10 +637,11 @@ bool DataIntegrator::loadDriversFromFile(const std::string& path, std::size_t in
             driversValid = false;
             return;
         }
-        if (!newLicenses.insert(driver.licenseNumber).second) {
+        if (newLicenses.contains(driver.licenseNumber)) {
             driversValid = false;
             return;
         }
+        newLicenses.push_back(driver.licenseNumber);
         if (driverTable_.contains(driver.licenseNumber)) {
             driversValid = false;
         }

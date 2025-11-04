@@ -9,6 +9,8 @@
 
 namespace {
 
+constexpr std::size_t kConfigTableSize = 64;
+
 std::filesystem::path ConfigPath(const std::string& name) {
     static const std::filesystem::path base = std::filesystem::path(__FILE__).parent_path() / "data" / "integrator";
     return base / name;
@@ -102,7 +104,7 @@ TEST(DataIntegratorUseCasesTest, UseCase03_DuplicateDriverRejected) {
 
 TEST(DataIntegratorUseCasesTest, UseCase04_LoadBasicAndUpdateDriver) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
@@ -232,7 +234,7 @@ TEST(DataIntegratorUseCasesTest, UseCase10_DeleteMiddleOrder) {
 
 TEST(DataIntegratorUseCasesTest, UseCase11_LoadMultipleAndInspectVM200) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
@@ -315,7 +317,7 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
 
 TEST(DataIntegratorUseCasesTest, UseCase12_LoadMultipleDriversWithoutOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
 
     EXPECT_TRUE(integrator.ordersForDriver("VM-247").empty());
     EXPECT_TRUE(integrator.ordersForDriver("VM-248").empty());
@@ -324,7 +326,7 @@ TEST(DataIntegratorUseCasesTest, UseCase12_LoadMultipleDriversWithoutOrders) {
 
 TEST(DataIntegratorUseCasesTest, UseCase13_FilterByLicenseNumber) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     auto driver = integrator.findDriver("VB-100");
     ASSERT_TRUE(driver.has_value());
@@ -341,7 +343,7 @@ TEST(DataIntegratorUseCasesTest, UseCase13_FilterByLicenseNumber) {
 
 TEST(DataIntegratorUseCasesTest, UseCase14_FilterByFio) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     auto driver = integrator.findDriver("VB-149");
     ASSERT_TRUE(driver.has_value());
@@ -350,7 +352,7 @@ TEST(DataIntegratorUseCasesTest, UseCase14_FilterByFio) {
 
 TEST(DataIntegratorUseCasesTest, UseCase15_FilterByCarBrand) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     auto driverA = integrator.findDriver("VB-104");
     auto driverB = integrator.findDriver("VB-149");
@@ -362,7 +364,7 @@ TEST(DataIntegratorUseCasesTest, UseCase15_FilterByCarBrand) {
 
 TEST(DataIntegratorUseCasesTest, UseCase16_FilterByOriginalLine) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     auto driver = integrator.findDriver("VB-100");
     ASSERT_TRUE(driver.has_value());
@@ -371,7 +373,7 @@ TEST(DataIntegratorUseCasesTest, UseCase16_FilterByOriginalLine) {
 
 TEST(DataIntegratorUseCasesTest, UseCase17_FilterOrdersByDriverLicense) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     auto orders = integrator.ordersForDriver("VB-149");
     ASSERT_EQ(orders.size(), 1u);
@@ -382,7 +384,7 @@ TEST(DataIntegratorUseCasesTest, UseCase17_FilterOrdersByDriverLicense) {
 
 TEST(DataIntegratorUseCasesTest, UseCase18_FilterOrdersByAddress) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
 
     OrderRecord order = MakeOrder("VM-201", "Multiple Hub 2A", "2328", "2025-01-04");
     EXPECT_TRUE(integrator.hasOrder(order));
@@ -393,7 +395,7 @@ TEST(DataIntegratorUseCasesTest, UseCase18_FilterOrdersByAddress) {
 
 TEST(DataIntegratorUseCasesTest, UseCase19_FilterOrdersByCost) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     OrderRecord order = MakeOrder("VB-149", "Basic Street 50", "1490", "2025-01-19");
     EXPECT_TRUE(integrator.hasOrder(order));
@@ -401,7 +403,7 @@ TEST(DataIntegratorUseCasesTest, UseCase19_FilterOrdersByCost) {
 
 TEST(DataIntegratorUseCasesTest, UseCase20_FilterOrdersByDate) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     OrderRecord order = MakeOrder("VB-100", "Basic Street 1", "1000", "2024-12-01");
     EXPECT_TRUE(integrator.hasOrder(order));
@@ -409,7 +411,7 @@ TEST(DataIntegratorUseCasesTest, UseCase20_FilterOrdersByDate) {
 
 TEST(DataIntegratorUseCasesTest, UseCase21_UpdateOrderAndAddNewForDriver) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     auto driver = integrator.findDriver("VB-100");
     ASSERT_TRUE(driver.has_value());
@@ -479,7 +481,7 @@ TEST(DataIntegratorUseCasesTest, UseCase22_SaveTwoDriversAndOrders) {
 
 TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     DriverRecord driver{"VB-100", "Basic Driver 1", "Brand 1", 1};
     DriverRecord updated{"VB-100", "Basic Driver 1", "UpdatedBrand", 15};
@@ -497,7 +499,7 @@ TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
     ASSERT_TRUE(integrator.saveToFile(tempPath.string()));
 
     DataIntegrator reloaded;
-    ASSERT_TRUE(reloaded.loadFromFile(tempPath.string()));
+    ASSERT_TRUE(reloaded.loadFromFile(tempPath.string(), kConfigTableSize));
 
     auto storedDriver = reloaded.findDriver(driver.licenseNumber);
     ASSERT_TRUE(storedDriver.has_value());
@@ -514,7 +516,7 @@ TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
 
 TEST(DataIntegratorUseCasesTest, UseCase24_ClearAfterLoading) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     integrator.clear();
 
@@ -526,7 +528,7 @@ TEST(DataIntegratorUseCasesTest, UseCase24_ClearAfterLoading) {
 
 TEST(DataIntegratorUseCasesTest, UseCase25_LoadBasicShowsTotals) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 50u);
@@ -538,7 +540,7 @@ TEST(DataIntegratorUseCasesTest, UseCase25_LoadBasicShowsTotals) {
 
 TEST(DataIntegratorUseCasesTest, UseCase26_LoadMultipleShowsTotalsAndOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 50u);
@@ -551,7 +553,7 @@ TEST(DataIntegratorUseCasesTest, UseCase26_LoadMultipleShowsTotalsAndOrders) {
 
 TEST(DataIntegratorUseCasesTest, UseCase27_LoadNoOrdersShowsEmptyOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 0u);
@@ -672,7 +674,7 @@ TEST(DataIntegratorUseCasesTest, UseCase31_LoadInvalidDoesNotOverwrite) {
     DriverRecord driver{"SAFE-1", "Safe Driver", "VW", 3};
     ASSERT_TRUE(integrator.addDriver(driver));
 
-    EXPECT_FALSE(integrator.loadFromFile(ConfigPath("invalid_unknown_driver.cfg").string()));
+    EXPECT_FALSE(integrator.loadFromFile(ConfigPath("invalid_unknown_driver.cfg").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 1u);
     EXPECT_TRUE(integrator.hasDriver("SAFE-1"));

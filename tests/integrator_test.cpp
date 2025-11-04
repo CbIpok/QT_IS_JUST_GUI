@@ -10,6 +10,8 @@
 
 namespace {
 
+constexpr std::size_t kConfigTableSize = 64;
+
 std::filesystem::path ConfigPath(const std::string& name) {
     static const std::filesystem::path base = std::filesystem::path(__FILE__).parent_path() / "data" / "integrator";
     return base / name;
@@ -195,7 +197,7 @@ TEST(DataIntegratorTest, IntegratorUpdateDriverKeepsData) {
 TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
     DataIntegrator integrator;
     auto path = ConfigPath("valid_basic.cfg");
-    ASSERT_TRUE(integrator.loadFromFile(path.string()));
+    ASSERT_TRUE(integrator.loadFromFile(path.string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
@@ -227,7 +229,7 @@ TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
 
 TEST(DataIntegratorTest, IntegratorLoadsConfigMultiple) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
@@ -261,7 +263,7 @@ TEST(DataIntegratorTest, IntegratorLoadsConfigMultiple) {
 
 TEST(DataIntegratorTest, IntegratorLoadsConfigNoOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
@@ -318,7 +320,7 @@ TEST(DataIntegratorTest, IntegratorSavesToFile) {
 
 TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string()));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
@@ -348,7 +350,7 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     ASSERT_TRUE(integrator.saveToFile(tempPath.string()));
 
     DataIntegrator reloaded;
-    ASSERT_TRUE(reloaded.loadFromFile(tempPath.string()));
+    ASSERT_TRUE(reloaded.loadFromFile(tempPath.string(), kConfigTableSize));
     auto reloadedDriver = reloaded.findDriver(updatedDriver.licenseNumber);
     ASSERT_TRUE(reloadedDriver.has_value());
     EXPECT_EQ(reloadedDriver->carBrand, "UpdatedBrand");
@@ -429,7 +431,7 @@ TEST(DataIntegratorTest, IntegratorRejectsInvalidConfigFile) {
     EXPECT_EQ(integrator.driverCount(), 1u);
 
     auto invalidPath = ConfigPath("invalid_unknown_driver.cfg");
-    EXPECT_FALSE(integrator.loadFromFile(invalidPath.string()));
+    EXPECT_FALSE(integrator.loadFromFile(invalidPath.string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 1u);
     EXPECT_EQ(integrator.orderCount(), 0u);
