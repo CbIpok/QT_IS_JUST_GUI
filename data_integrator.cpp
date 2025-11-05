@@ -84,6 +84,64 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
     return true;
 }
 
+enum class SectionHeaderResult {
+    Success,
+    None,
+    Error
+};
+
+SectionHeaderResult readSectionHeader(std::istream& input, std::string& section, std::size_t& count) {
+    std::string line;
+    while (std::getline(input, line)) {
+        trimCarriageReturn(line);
+        stripUtf8Bom(line);
+        if (line.empty()) {
+            continue;
+        }
+
+        std::istringstream header(line);
+        long long           countRaw = 0;
+        if (!(header >> section >> countRaw)) {
+            return SectionHeaderResult::Error;
+        }
+        if (countRaw < 0) {
+            return SectionHeaderResult::Error;
+        }
+        count = static_cast<std::size_t>(countRaw);
+        return SectionHeaderResult::Success;
+    }
+
+    if (input.eof()) {
+        return SectionHeaderResult::None;
+    }
+    return SectionHeaderResult::Error;
+}
+
+template <typename Record, typename Parser>
+bool readSectionRecords(std::istream& input,
+                        std::size_t   expectedCount,
+                        Parser&&      parser,
+                        DoublyLinkedList<Record>& out) {
+    std::string line;
+    for (std::size_t i = 0; i < expectedCount; ++i) {
+        if (!std::getline(input, line)) {
+            return false;
+        }
+        trimCarriageReturn(line);
+        stripUtf8Bom(line);
+        if (line.empty()) {
+            return false;
+        }
+
+        Record record{};
+        if (!parser(line, record)) {
+            return false;
+        }
+        out.push_back(record);
+    }
+    return true;
+}
+
 void appendOrderNodeDetailed(const AVLNode*                     node,
                              const DoublyLinkedList<OrderRecord>& orders,
                              std::ostringstream&                 out,
@@ -454,7 +512,13 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
     }
 
     std::size_t tableCapacity = driverTable_.capacity();
-    if (initialDriverTableSize > 0) {
+    if (!driverTableReady_) {
+        if (initialDriverTableSize == 0) {
+            return false;
+        }
+        tableCapacity = initialDriverTableSize;
+    }
+    else if (initialDriverTableSize > 0) {
         tableCapacity = initialDriverTableSize;
     }
 
@@ -508,61 +572,168 @@ bool DataIntegrator::loadDriversFromFile(const std::string& path, std::size_t in
     std::ifstream input(path, std::ios::binary);
     if (!input.is_open()) return false;
 
+    std::string section;
+    std::size_t count = 0;
+    SectionHeaderResult headerResult = readSectionHeader(input, section, count);
+    if (headerResult != SectionHeaderResult::Success) {
+        return false;
+    }
+    if (section != "drivers") {
+        return false;
+    }
+
     DoublyLinkedList<DriverRecord> parsedDrivers;
-    std::string line;
-    while (std::getline(input, line)) {
-        trimCarriageReturn(line);
-        stripUtf8Bom(line);
-        if (line.empty()) {
-            continue;
-        }
-        DriverRecord record{};
-        if (!parseDriverLine(line, record)) {
+    if (!readSectionRecords(input, count, parseDriverLine, parsedDrivers)) {
+        return false;
+    }
+
+    std::string nextSection;
+    std::size_t nextCount = 0;
+    DoublyLinkedList<OrderRecord> parsedOrders;
+    bool hasOrdersSection = false;
+    SectionHeaderResult nextHeader = readSectionHeader(input, nextSection, nextCount);
+    if (nextHeader == SectionHeaderResult::Success) {
+        if (nextSection != "orders") {
             return false;
         }
-        parsedDrivers.push_back(record);
+        if (!readSectionRecords(input, nextCount, parseOrderLine, parsedOrders)) {
+            return false;
+        }
+        hasOrdersSection = true;
     }
-
-    std::size_t tableCapacity = driverTable_.capacity();
-    if (tableCapacity == 0) {
-        tableCapacity = defaultDriverTableSize_;
-    }
-    if (tableCapacity == 0) {
-        tableCapacity = 1;
-    }
-    if (initialDriverTableSize > 0) {
-        tableCapacity = initialDriverTableSize;
-    }
-
-    DataIntegrator temp(tableCapacity, driverTableMaxLoadFactor_);
-    if (!temp.createDriverTable(tableCapacity)) {
+    else if (nextHeader == SectionHeaderResult::Error) {
         return false;
     }
 
-    bool driversLoaded = true;
+    bool createdDriverTable = false;
+    if (!driverTableReady_) {
+        if (initialDriverTableSize == 0) {
+            return false;
+        }
+        if (!createDriverTable(initialDriverTableSize)) {
+            return false;
+        }
+        createdDriverTable = true;
+    }
+
+    DoublyLinkedList<std::string> newLicenses;
+    bool driversValid = true;
     parsedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
-        if (!driversLoaded) {
+        if (!driversValid) {
             return;
         }
-        if (!temp.addDriver(driver)) {
-            driversLoaded = false;
+        if (!validateDriverRecord(driver)) {
+            driversValid = false;
+            return;
+        }
+        if (newLicenses.contains(driver.licenseNumber)) {
+            driversValid = false;
+            return;
+        }
+        newLicenses.push_back(driver.licenseNumber);
+        if (driverTable_.contains(driver.licenseNumber)) {
+            driversValid = false;
         }
     });
-    if (!driversLoaded) {
+    if (!driversValid) {
+        if (createdDriverTable) {
+            clearDriverTable();
+        }
         return false;
     }
 
-    drivers_ = std::move(temp.drivers_);
-    driverTable_ = std::move(temp.driverTable_);
-    driverTableReady_ = temp.driverTableReady_;
-    defaultDriverTableSize_ = temp.defaultDriverTableSize_;
+    DoublyLinkedList<DriverRecord> insertedDrivers;
+    bool driversInserted = true;
+    parsedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
+        if (!driversInserted) {
+            return;
+        }
+        if (!addDriver(driver)) {
+            driversInserted = false;
+            return;
+        }
+        insertedDrivers.push_back(driver);
+    });
+    if (!driversInserted) {
+        insertedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
+            removeDriver(driver);
+        });
+        if (createdDriverTable) {
+            clearDriverTable();
+        }
+        return false;
+    }
 
-    orders_.clear();
-    avl_free(&orderTree_);
-    avl_init(&orderTree_);
-    avl_free(&orderDateTree_);
-    avl_init(&orderDateTree_);
-    orderTreeReady_ = false;
+    if (hasOrdersSection) {
+        bool createdOrderTree = false;
+        if (!orderTreeReady_) {
+            if (!orders_.empty()) {
+                insertedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
+                    removeDriver(driver);
+                });
+                if (createdDriverTable) {
+                    clearDriverTable();
+                }
+                return false;
+            }
+            createOrderTree();
+            createdOrderTree = true;
+        }
+
+        bool ordersValid = true;
+        parsedOrders.for_each([&](const OrderRecord& order, std::size_t) {
+            if (!ordersValid) {
+                return;
+            }
+            if (!validateOrderRecord(order)) {
+                ordersValid = false;
+                return;
+            }
+            if (!driverTable_.contains(order.licenseNumber)) {
+                ordersValid = false;
+            }
+        });
+        if (!ordersValid) {
+            insertedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
+                removeDriver(driver);
+            });
+            if (createdOrderTree) {
+                clearOrderTree();
+            }
+            if (createdDriverTable) {
+                clearDriverTable();
+            }
+            return false;
+        }
+
+        DoublyLinkedList<OrderRecord> insertedOrders;
+        bool ordersInserted = true;
+        parsedOrders.for_each([&](const OrderRecord& order, std::size_t) {
+            if (!ordersInserted) {
+                return;
+            }
+            if (!addOrder(order)) {
+                ordersInserted = false;
+                return;
+            }
+            insertedOrders.push_back(order);
+        });
+        if (!ordersInserted) {
+            insertedOrders.for_each([&](const OrderRecord& order, std::size_t) {
+                removeOrder(order);
+            });
+            insertedDrivers.for_each([&](const DriverRecord& driver, std::size_t) {
+                removeDriver(driver);
+            });
+            if (createdOrderTree) {
+                clearOrderTree();
+            }
+            if (createdDriverTable) {
+                clearDriverTable();
+            }
+            return false;
+        }
+    }
 
     return true;
 }
@@ -575,28 +746,32 @@ bool DataIntegrator::loadOrdersFromFile(const std::string& path) {
     std::ifstream input(path, std::ios::binary);
     if (!input.is_open()) return false;
 
-    DoublyLinkedList<OrderRecord> parsedOrders;
-    std::string line;
-    while (std::getline(input, line)) {
-        trimCarriageReturn(line);
-        stripUtf8Bom(line);
-        if (line.empty()) {
-            continue;
-        }
-        OrderRecord record{};
-        if (!parseOrderLine(line, record)) {
-            return false;
-        }
-        parsedOrders.push_back(record);
+    std::string section;
+    std::size_t count = 0;
+    SectionHeaderResult headerResult = readSectionHeader(input, section, count);
+    if (headerResult != SectionHeaderResult::Success) {
+        return false;
+    }
+    if (section != "orders") {
+        return false;
     }
 
-    AVLTree newOrderTree{};
-    avl_init(&newOrderTree);
-    AVLTree newOrderDateTree{};
-    avl_init(&newOrderDateTree);
+    DoublyLinkedList<OrderRecord> parsedOrders;
+    if (!readSectionRecords(input, count, parseOrderLine, parsedOrders)) {
+        return false;
+    }
+
+    bool createdOrderTree = false;
+    if (!orderTreeReady_) {
+        if (!orders_.empty()) {
+            return false;
+        }
+        createOrderTree();
+        createdOrderTree = true;
+    }
 
     bool ordersValid = true;
-    parsedOrders.for_each([&](const OrderRecord& order, std::size_t idx) {
+    parsedOrders.for_each([&](const OrderRecord& order, std::size_t) {
         if (!ordersValid) {
             return;
         }
@@ -606,24 +781,37 @@ bool DataIntegrator::loadOrdersFromFile(const std::string& path) {
         }
         if (!driverTable_.contains(order.licenseNumber)) {
             ordersValid = false;
-            return;
         }
-        avl_insert(&newOrderTree, order.licenseNumber, idx);
-        avl_insert(&newOrderDateTree, order.date.key(), idx);
     });
-
     if (!ordersValid) {
-        avl_free(&newOrderTree);
-        avl_free(&newOrderDateTree);
+        if (createdOrderTree) {
+            clearOrderTree();
+        }
         return false;
     }
 
-    orders_ = std::move(parsedOrders);
-    avl_free(&orderTree_);
-    orderTree_ = newOrderTree;
-    avl_free(&orderDateTree_);
-    orderDateTree_ = newOrderDateTree;
-    orderTreeReady_ = true;
+    DoublyLinkedList<OrderRecord> insertedOrders;
+    bool ordersInserted = true;
+    parsedOrders.for_each([&](const OrderRecord& order, std::size_t) {
+        if (!ordersInserted) {
+            return;
+        }
+        if (!addOrder(order)) {
+            ordersInserted = false;
+            return;
+        }
+        insertedOrders.push_back(order);
+    });
+
+    if (!ordersInserted) {
+        insertedOrders.for_each([&](const OrderRecord& order, std::size_t) {
+            removeOrder(order);
+        });
+        if (createdOrderTree) {
+            clearOrderTree();
+        }
+        return false;
+    }
 
     return true;
 }
@@ -635,7 +823,7 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
     output << "drivers " << drivers_.size() << '\n';
     drivers_.for_each([&](const DriverRecord& driver, std::size_t) {
         output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '\n';
-        });
+    });
 
     output << "orders " << orders_.size() << '\n';
     orders_.for_each([&](const OrderRecord& order, std::size_t) {

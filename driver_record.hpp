@@ -11,8 +11,8 @@ struct DriverRecord {
 
 inline bool operator==(const DriverRecord& lhs, const DriverRecord& rhs) {
     return lhs.licenseNumber == rhs.licenseNumber &&
-        lhs.fio == rhs.fio &&
-        lhs.carBrand == rhs.carBrand;
+           lhs.fio == rhs.fio &&
+           lhs.carBrand == rhs.carBrand;
 }
 
 inline bool operator!=(const DriverRecord& lhs, const DriverRecord& rhs) {

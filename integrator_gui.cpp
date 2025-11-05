@@ -36,8 +36,8 @@ public:
         col_header_height(26);
         cols(3);
         col_width(0, 180);
-        col_width(1, 300);
-        col_width(2, 200);
+        col_width(1, 240);
+        col_width(2, 160);
         end();
     }
 
@@ -197,8 +197,6 @@ private:
     Fl_Menu_Bar*      treeMenuBar_;
     DriverTableView*  driverTable_;
     OrderTableView*   orderTable_;
-    Fl_Button*        loadDriversButton_;
-    Fl_Button*        loadOrdersButton_;
     Fl_Button*        hashDebugButton_;
     Fl_Button*        treeDebugButton_;
     Fl_Button*        dateDebugButton_;
@@ -279,8 +277,6 @@ IntegratorGUI::IntegratorGUI()
       treeMenuBar_(nullptr),
       driverTable_(nullptr),
       orderTable_(nullptr),
-      loadDriversButton_(nullptr),
-      loadOrdersButton_(nullptr),
       hashDebugButton_(nullptr),
       treeDebugButton_(nullptr),
       dateDebugButton_(nullptr),
@@ -332,10 +328,7 @@ IntegratorGUI::IntegratorGUI()
     driverTable_ = new DriverTableView(10, driverTableTop, windowWidth - 20, driverTableHeight, integrator_);
 
     int driverButtonsTop = driverTableTop + driverTableHeight + driverButtonGap;
-    loadDriversButton_ = new Fl_Button(10, driverButtonsTop, 200, driverButtonHeight, "Загрузить водителей");
-    loadDriversButton_->callback(&IntegratorGUI::CallbackLoadDrivers, this);
-
-    hashDebugButton_ = new Fl_Button(220,
+    hashDebugButton_ = new Fl_Button(10,
                                      driverButtonsTop,
                                      200,
                                      driverButtonHeight,
@@ -387,17 +380,14 @@ IntegratorGUI::IntegratorGUI()
     orderTable_ = new OrderTableView(10, orderTableTop, windowWidth - 20, orderTableHeight, integrator_);
 
     int orderButtonsTop = orderTableTop + orderTableHeight + orderButtonGap;
-    loadOrdersButton_ = new Fl_Button(10, orderButtonsTop, 200, orderButtonHeight, "Загрузить заказы");
-    loadOrdersButton_->callback(&IntegratorGUI::CallbackLoadOrders, this);
-
-    treeDebugButton_ = new Fl_Button(220,
+    treeDebugButton_ = new Fl_Button(10,
                                      orderButtonsTop,
                                      200,
                                      orderButtonHeight,
                                      "Отладка AVL (водители)");
     treeDebugButton_->callback(&IntegratorGUI::CallbackShowOrderTree, this);
 
-    dateDebugButton_ = new Fl_Button(430,
+    dateDebugButton_ = new Fl_Button(220,
                                      orderButtonsTop,
                                      240,
                                      orderButtonHeight,
@@ -436,10 +426,6 @@ void IntegratorGUI::refreshDataViews() {
     if (hashDebugButton_) {
         if (integrator_.hasDriverTable()) hashDebugButton_->activate();
         else hashDebugButton_->deactivate();
-    }
-    if (loadOrdersButton_) {
-        if (integrator_.hasDriverTable()) loadOrdersButton_->activate();
-        else loadOrdersButton_->deactivate();
     }
     if (treeDebugButton_) {
         if (integrator_.hasOrderTree()) treeDebugButton_->activate();
@@ -675,18 +661,28 @@ void IntegratorGUI::handleLoadDrivers() {
                                false);
     if (!path) return;
 
-    std::size_t capacity = integrator_.driverTableCapacity();
-    if (capacity == 0) {
-        capacity = 1;
+    std::size_t requestedCapacity = 0;
+    if (!integrator_.hasDriverTable()) {
+        std::size_t currentCapacity = integrator_.driverTableCapacity();
+        if (currentCapacity == 0) {
+            currentCapacity = 1;
+        }
+        int defaultSize = static_cast<int>(currentCapacity);
+        auto sizeOpt = promptInt("Начальный размер хеш-таблицы:", defaultSize, 1);
+        if (!sizeOpt) return;
+        requestedCapacity = static_cast<std::size_t>(*sizeOpt);
     }
-    int defaultSize = static_cast<int>(capacity);
-    auto sizeOpt = promptInt("Начальный размер хеш-таблицы:", defaultSize, 1);
-    if (!sizeOpt) return;
 
-    if (integrator_.loadDriversFromFile(*path, static_cast<std::size_t>(*sizeOpt))) {
-        updateStatus("Файл водителей загружен.");
+    std::size_t previousOrderCount = integrator_.orderCount();
+
+    if (integrator_.loadDriversFromFile(*path, requestedCapacity)) {
+        std::size_t newOrderCount = integrator_.orderCount();
+        std::string  status = (newOrderCount > previousOrderCount)
+                                 ? "Файл водителей и заказов загружен."
+                                 : "Файл водителей загружен.";
+        updateStatus(status);
         refreshDataViews();
-        showInfo("Водители загружены. Заказы очищены.");
+        showInfo(status);
     }
     else {
         showError("Не удалось загрузить файл водителей.");
@@ -886,8 +882,8 @@ void IntegratorGUI::handleFindDriver() {
 
     std::ostringstream info;
     info << "Лицензия: " << stored->licenseNumber << "\n"
-        << "ФИО: " << stored->fio << "\n"
-        << "Марка: " << stored->carBrand << "\n";
+         << "ФИО: " << stored->fio << "\n"
+         << "Марка: " << stored->carBrand;
     showInfo(info.str());
 }
 
