@@ -237,7 +237,6 @@ private:
     void handleAddOrder();
     void handleUpdateOrder();
     void handleRemoveOrder();
-    void handleShowOrders();
     void handleCheckOrder();
     void handleCreateOrderTree();
     void handleClearOrderTreeOnly();
@@ -260,7 +259,6 @@ private:
     static void CallbackAddOrder(Fl_Widget*, void*);
     static void CallbackUpdateOrder(Fl_Widget*, void*);
     static void CallbackRemoveOrder(Fl_Widget*, void*);
-    static void CallbackShowOrders(Fl_Widget*, void*);
     static void CallbackCheckOrder(Fl_Widget*, void*);
     static void CallbackCreateOrderTree(Fl_Widget*, void*);
     static void CallbackClearOrderTreeOnly(Fl_Widget*, void*);
@@ -350,7 +348,6 @@ IntegratorGUI::IntegratorGUI()
     treeMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateOrder, this);
     treeMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackCheckOrder, this);
     treeMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveOrder, this);
-    treeMenuBar_->add("Отч", 0, &IntegratorGUI::CallbackShowOrders, this);
     treeMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowOrderTree, this);
     treeMenuBar_->add("Табл дат", 0, &IntegratorGUI::CallbackShowDateTree, this);
     treeMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateOrderTree, this);
@@ -986,29 +983,6 @@ void IntegratorGUI::handleRemoveOrder() {
     }
 }
 
-void IntegratorGUI::handleShowOrders() {
-    if (!integrator_.hasOrderTree()) {
-        showError("Дерево заказов ещё не создано.");
-        return;
-    }
-    auto license = promptNonEmpty("Номер водителя для отображения заказов:");
-    if (!license) return;
-
-    DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
-    if (orders.empty()) {
-        showInfo("У данного водителя нет заказов.");
-        return;
-    }
-
-    std::ostringstream list;
-    list << "Заказы водителя " << *license << ":\n\n";
-    for (std::size_t i = 0; i < orders.size(); ++i) {
-        const OrderRecord& order = orders[i];
-        list << "- " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
-    }
-    showInfo(list.str());
-}
-
 void IntegratorGUI::handleCheckOrder() {
     if (!integrator_.hasOrderTree()) {
         showError("Дерево заказов ещё не создано.");
@@ -1152,10 +1126,6 @@ void IntegratorGUI::CallbackUpdateOrder(Fl_Widget*, void* data) {
 
 void IntegratorGUI::CallbackRemoveOrder(Fl_Widget*, void* data) {
     static_cast<IntegratorGUI*>(data)->handleRemoveOrder();
-}
-
-void IntegratorGUI::CallbackShowOrders(Fl_Widget*, void* data) {
-    static_cast<IntegratorGUI*>(data)->handleShowOrders();
 }
 
 void IntegratorGUI::CallbackCheckOrder(Fl_Widget*, void* data) {

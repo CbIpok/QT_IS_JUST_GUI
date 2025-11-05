@@ -1,58 +1,22 @@
 #include "data_integrator.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
 
+#include "string_utils.hpp"
+
 namespace {
-
-void trimCarriageReturn(std::string& value) {
-    if (!value.empty() && value.back() == '\r') {
-        value.pop_back();
-    }
-}
-
-void stripUtf8Bom(std::string& value) {
-    if (value.size() >= 3) {
-        const unsigned char first = static_cast<unsigned char>(value[0]);
-        const unsigned char second = static_cast<unsigned char>(value[1]);
-        const unsigned char third = static_cast<unsigned char>(value[2]);
-        if (first == 0xEF && second == 0xBB && third == 0xBF) {
-            value.erase(0, 3);
-        }
-    }
-}
-
-bool splitLine(const std::string& line, char delimiter, std::string* fields, std::size_t expectedCount) {
-    std::size_t fieldIndex = 0;
-    std::size_t start = 0;
-    std::size_t length = line.size();
-    for (std::size_t i = 0; i <= length; ++i) {
-        bool isDelimiter = (i < length && line[i] == delimiter);
-        bool isEnd = (i == length);
-        if (!isDelimiter && !isEnd) {
-            continue;
-        }
-        if (fieldIndex >= expectedCount) {
-            return false;
-        }
-        fields[fieldIndex] = line.substr(start, i - start);
-        ++fieldIndex;
-        start = i + 1;
-    }
-    return fieldIndex == expectedCount;
-}
 
 bool parseDriverLine(const std::string& line, DriverRecord& out) {
     std::string parts[3];
-    if (!splitLine(line, '|', parts, 3)) return false;
+    if (!string_utils::splitLine(line, '|', parts, 3)) return false;
     for (std::size_t i = 0; i < 3; ++i) {
-        trimCarriageReturn(parts[i]);
-        stripUtf8Bom(parts[i]);
+        string_utils::trimCarriageReturn(parts[i]);
+        string_utils::stripUtf8Bom(parts[i]);
     }
 
     if (parts[0].empty()) return false;
@@ -65,10 +29,10 @@ bool parseDriverLine(const std::string& line, DriverRecord& out) {
 
 bool parseOrderLine(const std::string& line, OrderRecord& out) {
     std::string parts[4];
-    if (!splitLine(line, '|', parts, 4)) return false;
+    if (!string_utils::splitLine(line, '|', parts, 4)) return false;
     for (std::size_t i = 0; i < 4; ++i) {
-        trimCarriageReturn(parts[i]);
-        stripUtf8Bom(parts[i]);
+        string_utils::trimCarriageReturn(parts[i]);
+        string_utils::stripUtf8Bom(parts[i]);
     }
 
     if (parts[0].empty()) return false;
@@ -93,8 +57,8 @@ enum class SectionHeaderResult {
 SectionHeaderResult readSectionHeader(std::istream& input, std::string& section, std::size_t& count) {
     std::string line;
     while (std::getline(input, line)) {
-        trimCarriageReturn(line);
-        stripUtf8Bom(line);
+        string_utils::trimCarriageReturn(line);
+        string_utils::stripUtf8Bom(line);
         if (line.empty()) {
             continue;
         }
@@ -127,8 +91,8 @@ bool readSectionRecords(std::istream& input,
         if (!std::getline(input, line)) {
             return false;
         }
-        trimCarriageReturn(line);
-        stripUtf8Bom(line);
+        string_utils::trimCarriageReturn(line);
+        string_utils::stripUtf8Bom(line);
         if (line.empty()) {
             return false;
         }
@@ -477,7 +441,7 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
     std::string header;
     long long driverCountRaw = 0;
     if (!(input >> header >> driverCountRaw)) return false;
-    stripUtf8Bom(header);
+    string_utils::stripUtf8Bom(header);
     if (header != "drivers" || driverCountRaw < 0) return false;
     std::size_t driverCount = static_cast<std::size_t>(driverCountRaw);
 
@@ -487,8 +451,8 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
     DoublyLinkedList<DriverRecord> parsedDrivers;
     for (std::size_t i = 0; i < driverCount; ++i) {
         if (!std::getline(input, line)) return false;
-        trimCarriageReturn(line);
-        stripUtf8Bom(line);
+        string_utils::trimCarriageReturn(line);
+        string_utils::stripUtf8Bom(line);
         DriverRecord record{};
         if (!parseDriverLine(line, record)) return false;
         parsedDrivers.push_back(record);
@@ -496,7 +460,7 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
 
     long long orderCountRaw = 0;
     if (!(input >> header >> orderCountRaw)) return false;
-    stripUtf8Bom(header);
+    string_utils::stripUtf8Bom(header);
     if (header != "orders" || orderCountRaw < 0) return false;
     std::size_t orderCount = static_cast<std::size_t>(orderCountRaw);
     std::getline(input, line);
@@ -504,8 +468,8 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
     DoublyLinkedList<OrderRecord> parsedOrders;
     for (std::size_t i = 0; i < orderCount; ++i) {
         if (!std::getline(input, line)) return false;
-        trimCarriageReturn(line);
-        stripUtf8Bom(line);
+        string_utils::trimCarriageReturn(line);
+        string_utils::stripUtf8Bom(line);
         OrderRecord record{};
         if (!parseOrderLine(line, record)) return false;
         parsedOrders.push_back(record);

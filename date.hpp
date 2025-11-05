@@ -1,44 +1,10 @@
 #pragma once
 
-#include <algorithm>
-#include <cctype>
 #include <iomanip>
 #include <sstream>
 #include <string>
 
-namespace date_detail {
-inline std::string trim(const std::string& value) {
-    std::size_t start = 0;
-    std::size_t end = value.size();
-    while (start < end && std::isspace(static_cast<unsigned char>(value[start]))) {
-        ++start;
-    }
-    while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1]))) {
-        --end;
-    }
-    return value.substr(start, end - start);
-}
-
-inline bool parseInteger(const std::string& text, int& out) {
-    if (text.empty()) return false;
-    int value = 0;
-    for (char ch : text) {
-        if (!std::isdigit(static_cast<unsigned char>(ch))) {
-            return false;
-        }
-        value = value * 10 + (ch - '0');
-    }
-    out = value;
-    return true;
-}
-
-inline std::string toLower(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return text;
-}
-} // namespace date_detail
+#include "string_utils.hpp"
 
 enum class Month : int {
     Jan = 1,
@@ -64,7 +30,7 @@ struct Date {
     Date(int d, Month m, int y) : day(d), month(m), year(y) {}
 
     static bool parse(const std::string& text, Date& out) {
-        std::string trimmed = date_detail::trim(text);
+        std::string trimmed = string_utils::trim(text);
         if (trimmed.empty()) {
             return false;
         }
@@ -133,9 +99,9 @@ private:
         int yearValue = 0;
         int monthValue = 0;
         int dayValue = 0;
-        if (!date_detail::parseInteger(yearPart, yearValue)) return false;
-        if (!date_detail::parseInteger(monthPart, monthValue)) return false;
-        if (!date_detail::parseInteger(dayPart, dayValue)) return false;
+        if (!string_utils::parseInteger(yearPart, yearValue)) return false;
+        if (!string_utils::parseInteger(monthPart, monthValue)) return false;
+        if (!string_utils::parseInteger(dayPart, dayValue)) return false;
 
         if (monthValue < 1 || monthValue > 12) return false;
         if (dayValue < 1 || dayValue > 31) return false;
@@ -155,9 +121,9 @@ private:
 
         int dayValue = 0;
         int yearValue = 0;
-        if (!date_detail::parseInteger(dayPart, dayValue)) return false;
+        if (!string_utils::parseInteger(dayPart, dayValue)) return false;
         if (dayValue < 1 || dayValue > 31) return false;
-        if (!date_detail::parseInteger(yearPart, yearValue)) return false;
+        if (!string_utils::parseInteger(yearPart, yearValue)) return false;
 
         Month monthValue;
         if (!parseMonth(monthPart, monthValue)) return false;
@@ -170,7 +136,7 @@ private:
         static const char* MONTH_NAMES[12] = {
             "jan", "feb", "mar", "apr", "may", "jun",
             "jul", "aug", "sep", "oct", "nov", "dec"};
-        std::string lower = date_detail::toLower(text);
+        std::string lower = string_utils::toLower(text);
         for (int i = 0; i < 12; ++i) {
             if (lower == MONTH_NAMES[i]) {
                 month = static_cast<Month>(i + 1);
