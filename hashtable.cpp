@@ -162,6 +162,13 @@ DoublyLinkedList<HashTable::Entry> HashTable::entries() const {
     return result;
 }
 
+Cell HashTable::cellAt(std::size_t slot) const {
+    if (slot >= m_size) {
+        return Cell{};
+    }
+    return table[slot];
+}
+
 std::size_t HashTable::hashPrimary(const std::string& key) const {
     static constexpr std::uint64_t MUL = 11400714819323198485ULL;
     std::uint64_t k = 0;

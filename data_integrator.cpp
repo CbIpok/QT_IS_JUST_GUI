@@ -850,31 +850,36 @@ std::string DataIntegrator::hashTableAsText() const {
     out << "Водителей: " << drivers_.size()
         << " | Вместимость таблицы: " << driverTable_.capacity()
         << " | Записей: " << driverTable_.size() << '\n';
-    out << "----------------------------------------\n";
+    out << "Хеш | Статус | Лицензия | ФИО | Авто | Заказов\n";
+    out << "----------------------------------------------------------------\n";
 
-    DoublyLinkedList<HashTable::Entry> entries = driverTable_.entries();
-    if (entries.empty()) {
-        out << "(пусто)\n";
-        return out.str();
-    }
+    for (std::size_t slot = 0; slot < driverTable_.capacity(); ++slot) {
+        Cell cell = driverTable_.cellAt(slot);
 
-    entries.for_each([&](const HashTable::Entry& entry, std::size_t) {
-        if (entry.index >= drivers_.size()) {
-            return;
+        std::string status = cell.occupied ? "Занято" : "Свободно";
+        std::string license = "-";
+        std::string fio = "-";
+        std::string car = "-";
+        std::size_t orderCount = 0;
+
+        if (cell.occupied && cell.index < drivers_.size()) {
+            const DriverRecord& driver = drivers_.at(cell.index);
+            license = driver.licenseNumber;
+            fio = driver.fio;
+            car = driver.carBrand;
+            orders_.for_each([&](const OrderRecord& order, std::size_t) {
+                if (order.licenseNumber == driver.licenseNumber) {
+                    ++orderCount;
+                }
+            });
         }
-        const DriverRecord& driver = drivers_.at(entry.index);
-        std::size_t        orderCount = 0;
-        orders_.for_each([&](const OrderRecord& order, std::size_t) {
-            if (order.licenseNumber == driver.licenseNumber) {
-                ++orderCount;
-            }
-        });
 
-        out << '[' << entry.slot << "] " << driver.licenseNumber
-            << " | ФИО: " << driver.fio
-            << " | Авто: " << driver.carBrand
+        out << '[' << slot << "] " << status
+            << " | Лицензия: " << license
+            << " | ФИО: " << fio
+            << " | Авто: " << car
             << " | Заказов: " << orderCount << '\n';
-    });
+    }
 
     return out.str();
 }

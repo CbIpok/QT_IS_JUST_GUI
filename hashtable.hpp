@@ -38,6 +38,7 @@ public:
     void clear();
     std::string toString() const;
     DoublyLinkedList<Entry> entries() const;
+    Cell cellAt(std::size_t slot) const;
 
     std::size_t capacity() const { return m_size; }
     std::size_t size() const { return m_count; }
