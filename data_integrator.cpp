@@ -48,6 +48,31 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
     return true;
 }
 
+bool writeDriverSection(std::ostream& output, const DoublyLinkedList<DriverRecord>& drivers) {
+    output << "drivers " << drivers.size() << '\n';
+    if (!output) {
+        return false;
+    }
+    drivers.for_each([&](const DriverRecord& driver, std::size_t) {
+        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '\n';
+    });
+    output.flush();
+    return static_cast<bool>(output);
+}
+
+bool writeOrderSection(std::ostream& output, const DoublyLinkedList<OrderRecord>& orders) {
+    output << "orders " << orders.size() << '\n';
+    if (!output) {
+        return false;
+    }
+    orders.for_each([&](const OrderRecord& order, std::size_t) {
+        output << order.licenseNumber << '|' << order.address << '|' << order.cost << '|' << order.date.storageString()
+               << '\n';
+    });
+    output.flush();
+    return static_cast<bool>(output);
+}
+
 enum class SectionHeaderResult {
     Success,
     None,
@@ -784,18 +809,37 @@ bool DataIntegrator::saveToFile(const std::string& path) const {
     std::ofstream output(path);
     if (!output.is_open()) return false;
 
-    output << "drivers " << drivers_.size() << '\n';
-    drivers_.for_each([&](const DriverRecord& driver, std::size_t) {
-        output << driver.licenseNumber << '|' << driver.fio << '|' << driver.carBrand << '\n';
-    });
+    if (!writeDriverSection(output, drivers_)) {
+        return false;
+    }
+    if (!writeOrderSection(output, orders_)) {
+        return false;
+    }
+    return true;
+}
 
-    output << "orders " << orders_.size() << '\n';
-    orders_.for_each([&](const OrderRecord& order, std::size_t) {
-        output << order.licenseNumber << '|' << order.address << '|' << order.cost << '|' << order.date.storageString() << '\n';
-    });
+bool DataIntegrator::saveDriversToFile(const std::string& path) const {
+    if (!driverTableReady_) {
+        return false;
+    }
 
-    output.flush();
-    return static_cast<bool>(output);
+    std::ofstream output(path);
+    if (!output.is_open()) {
+        return false;
+    }
+    return writeDriverSection(output, drivers_);
+}
+
+bool DataIntegrator::saveOrdersToFile(const std::string& path) const {
+    if (!orderTreeReady_ && !orders_.empty()) {
+        return false;
+    }
+
+    std::ofstream output(path);
+    if (!output.is_open()) {
+        return false;
+    }
+    return writeOrderSection(output, orders_);
 }
 
 std::string DataIntegrator::hashTableAsText() const {

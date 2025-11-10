@@ -317,6 +317,67 @@ TEST(DataIntegratorTest, IntegratorSavesToFile) {
     RemoveIfExists(tempPath);
 }
 
+TEST(DataIntegratorTest, IntegratorSavesDriversSeparately) {
+    DataIntegrator integrator;
+    ASSERT_TRUE(integrator.createDriverTable(8));
+    DriverRecord first{"DL-100", "Driver One", "Audi"};
+    DriverRecord second{"DL-200", "Driver Two", "Volvo"};
+    ASSERT_TRUE(integrator.addDriver(first));
+    ASSERT_TRUE(integrator.addDriver(second));
+
+    auto tempPath = TempFilePathForCurrentTest();
+    RemoveIfExists(tempPath);
+    ASSERT_TRUE(integrator.saveDriversToFile(tempPath.string()));
+
+    std::ifstream input(tempPath);
+    ASSERT_TRUE(input.is_open());
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    input.close();
+
+    std::string expected =
+        "drivers 2\n"
+        "DL-100|Driver One|Audi\n"
+        "DL-200|Driver Two|Volvo\n";
+    EXPECT_EQ(buffer.str(), expected);
+
+    RemoveIfExists(tempPath);
+}
+
+TEST(DataIntegratorTest, IntegratorSavesOrdersSeparately) {
+    DataIntegrator integrator;
+    ASSERT_TRUE(integrator.createDriverTable(8));
+    ASSERT_TRUE(integrator.createOrderTree());
+
+    DriverRecord first{"DL-300", "Driver Three", "Skoda"};
+    DriverRecord second{"DL-400", "Driver Four", "Toyota"};
+    ASSERT_TRUE(integrator.addDriver(first));
+    ASSERT_TRUE(integrator.addDriver(second));
+
+    OrderRecord orderA = MakeOrder(first.licenseNumber, "Central Street", "150", "2024-05-01");
+    OrderRecord orderB = MakeOrder(second.licenseNumber, "North Avenue", "210", "2024-05-02");
+    ASSERT_TRUE(integrator.addOrder(orderA));
+    ASSERT_TRUE(integrator.addOrder(orderB));
+
+    auto tempPath = TempFilePathForCurrentTest();
+    RemoveIfExists(tempPath);
+    ASSERT_TRUE(integrator.saveOrdersToFile(tempPath.string()));
+
+    std::ifstream input(tempPath);
+    ASSERT_TRUE(input.is_open());
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    input.close();
+
+    std::string expected =
+        "orders 2\n"
+        "DL-300|Central Street|150|2024-05-01\n"
+        "DL-400|North Avenue|210|2024-05-02\n";
+    EXPECT_EQ(buffer.str(), expected);
+
+    RemoveIfExists(tempPath);
+}
+
 TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
