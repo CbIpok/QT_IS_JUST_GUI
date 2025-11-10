@@ -222,8 +222,8 @@ private:
 
     void handleLoadDrivers();
     void handleLoadOrders();
-    void handleSave();
-    void handleSaveStructures();
+    void handleSaveDrivers();
+    void handleSaveOrders();
     void handleClear();
     void handleCreateDriverTable();
     void handleClearDriverTableOnly();
@@ -246,8 +246,8 @@ private:
 
     static void CallbackLoadDrivers(Fl_Widget*, void*);
     static void CallbackLoadOrders(Fl_Widget*, void*);
-    static void CallbackSave(Fl_Widget*, void*);
-    static void CallbackSaveStructures(Fl_Widget*, void*);
+    static void CallbackSaveDrivers(Fl_Widget*, void*);
+    static void CallbackSaveOrders(Fl_Widget*, void*);
     static void CallbackClear(Fl_Widget*, void*);
     static void CallbackCreateDriverTable(Fl_Widget*, void*);
     static void CallbackClearDriverTableOnly(Fl_Widget*, void*);
@@ -292,12 +292,11 @@ IntegratorGUI::IntegratorGUI()
     hashMenuBar_->color(fl_rgb_color(245, 245, 245));
     hashMenuBar_->textsize(13);
     hashMenuBar_->add("Загр. вод", 0, &IntegratorGUI::CallbackLoadDrivers, this);
-    hashMenuBar_->add("Выгр. в файл", 0, &IntegratorGUI::CallbackSave, this);
+    hashMenuBar_->add("Выгр. вод", 0, &IntegratorGUI::CallbackSaveDrivers, this);
     hashMenuBar_->add("Доб", 0, &IntegratorGUI::CallbackAddDriver, this);
     hashMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateDriver, this);
     hashMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackFindDriver, this);
     hashMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveDriver, this);
-    hashMenuBar_->add("Отч", 0, &IntegratorGUI::CallbackSaveStructures, this);
     hashMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowDriverTable, this);
     hashMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateDriverTable, this);
     hashMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearDriverTableOnly, this);
@@ -344,6 +343,7 @@ IntegratorGUI::IntegratorGUI()
     treeMenuBar_->color(fl_rgb_color(245, 245, 245));
     treeMenuBar_->textsize(13);
     treeMenuBar_->add("Загр. зак", 0, &IntegratorGUI::CallbackLoadOrders, this);
+    treeMenuBar_->add("Выгр. зак", 0, &IntegratorGUI::CallbackSaveOrders, this);
     treeMenuBar_->add("Доб", 0, &IntegratorGUI::CallbackAddOrder, this);
     treeMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateOrder, this);
     treeMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackCheckOrder, this);
@@ -708,40 +708,45 @@ void IntegratorGUI::handleLoadOrders() {
     }
 }
 
-void IntegratorGUI::handleSave() {
-    auto path = promptFilePath("Сохранение конфигурации",
-                               "Введите путь для сохранения конфигурации:",
+void IntegratorGUI::handleSaveDrivers() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Сначала создайте или загрузите хеш-таблицу водителей.");
+        return;
+    }
+
+    auto path = promptFilePath("Сохранение водителей",
+                               "Введите путь для сохранения водителей:",
                                Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
                                false);
     if (!path) return;
 
-    if (integrator_.saveToFile(*path)) {
-        updateStatus("Данные сохранены.");
-        showInfo("Файл сохранён.");
+    if (integrator_.saveDriversToFile(*path)) {
+        updateStatus("Водители сохранены.");
+        showInfo("Файл с водителями сохранён.");
     }
     else {
-        showError("Не удалось сохранить файл.");
+        showError("Не удалось сохранить файл водителей.");
     }
 }
 
-void IntegratorGUI::handleSaveStructures() {
-    auto hashPath = promptFilePath("Сохранение хеш-таблицы",
-                                   "Файл для хеш-таблицы (оставьте пустым, чтобы пропустить):",
-                                   Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
-                                   true);
-    if (!hashPath) return;
-    auto treePath = promptFilePath("Сохранение дерева заказов",
-                                   "Файл для дерева заказов (оставьте пустым, чтобы пропустить):",
-                                   Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
-                                   true);
-    if (!treePath) return;
+void IntegratorGUI::handleSaveOrders() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Сначала создайте или загрузите дерево заказов.");
+        return;
+    }
 
-    if (integrator_.saveStructures(*hashPath, *treePath)) {
-        updateStatus("Структуры сохранены.");
-        showInfo("Хеш-таблица и дерево сохранены.");
+    auto path = promptFilePath("Сохранение заказов",
+                               "Введите путь для сохранения заказов:",
+                               Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                               false);
+    if (!path) return;
+
+    if (integrator_.saveOrdersToFile(*path)) {
+        updateStatus("Заказы сохранены.");
+        showInfo("Файл с заказами сохранён.");
     }
     else {
-        showError("Не удалось сохранить структуры.");
+        showError("Не удалось сохранить файл заказов.");
     }
 }
 
@@ -1076,12 +1081,12 @@ void IntegratorGUI::CallbackLoadOrders(Fl_Widget*, void* data) {
     static_cast<IntegratorGUI*>(data)->handleLoadOrders();
 }
 
-void IntegratorGUI::CallbackSave(Fl_Widget*, void* data) {
-    static_cast<IntegratorGUI*>(data)->handleSave();
+void IntegratorGUI::CallbackSaveDrivers(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleSaveDrivers();
 }
 
-void IntegratorGUI::CallbackSaveStructures(Fl_Widget*, void* data) {
-    static_cast<IntegratorGUI*>(data)->handleSaveStructures();
+void IntegratorGUI::CallbackSaveOrders(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleSaveOrders();
 }
 
 void IntegratorGUI::CallbackClear(Fl_Widget*, void* data) {

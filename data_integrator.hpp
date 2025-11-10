@@ -56,6 +56,8 @@ public:
     bool loadDriversFromFile(const std::string& path, std::size_t initialDriverTableSize = 0);
     bool loadOrdersFromFile(const std::string& path);
     bool saveToFile(const std::string& path) const;
+    bool saveDriversToFile(const std::string& path) const;
+    bool saveOrdersToFile(const std::string& path) const;
     std::string hashTableAsText() const;
     std::string orderTreeAsText() const;
     std::string orderDateTreeAsText() const;
