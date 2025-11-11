@@ -18,13 +18,107 @@
 #include <FL/fl_ask.H>
 #include <FL/fl_draw.H>
 
+#include <algorithm>
+#include <functional>
 #include <optional>
+#include <regex>
 #include <sstream>
 #include <string>
 
 #include "data_integrator.hpp"
 
 namespace {
+
+bool isValidLicense(const std::string& value) {
+    static const std::regex pattern(R"(^[A-Z0-9]+$)");
+    return std::regex_match(value, pattern);
+}
+
+bool isValidFio(const std::string& value) {
+    static const std::regex pattern(u8"^[А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+$");
+    return std::regex_match(value, pattern);
+}
+
+bool isValidCarBrand(const std::string& value) {
+    static const std::regex pattern(u8"^[A-ZА-ЯЁ][a-zа-яё]*$");
+    return std::regex_match(value, pattern);
+}
+
+bool isValidAddress(const std::string& value) {
+    if (value.empty() || value.front() == ' ' || value.back() == ' ') {
+        return false;
+    }
+
+    static const std::regex letterToken(u8"^[А-ЯЁ][а-яё]*$");
+    static const std::regex digitToken(R"(^[0-9]+$)");
+
+    std::size_t start = 0;
+    bool        first = true;
+    while (start < value.size()) {
+        std::size_t end = value.find(' ', start);
+        std::string token = (end == std::string::npos) ? value.substr(start)
+                                                      : value.substr(start, end - start);
+        if (token.empty()) {
+            return false;
+        }
+
+        char lastChar = token.back();
+        if (lastChar == '.' || lastChar == ',') {
+            token.pop_back();
+            if (token.empty()) {
+                return false;
+            }
+        }
+
+        bool isLetter = std::regex_match(token, letterToken);
+        bool isDigit = std::regex_match(token, digitToken);
+
+        if (!isLetter && !isDigit) {
+            return false;
+        }
+        if (first && !isLetter) {
+            return false;
+        }
+
+        first = false;
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+
+    return !first;
+}
+
+bool isValidCost(const std::string& value) {
+    static const std::regex pattern(R"(^[0-9]+,[0-9]{2}$)");
+    if (!std::regex_match(value, pattern)) {
+        return false;
+    }
+
+    std::size_t commaPos = value.find(',');
+    std::string integerPart = value.substr(0, commaPos);
+    std::string fractionalPart = value.substr(commaPos + 1);
+
+    bool integerAllZeros = std::all_of(integerPart.begin(), integerPart.end(), [](char ch) {
+        return ch == '0';
+    });
+
+    if (integerAllZeros && fractionalPart == "00") {
+        return false;
+    }
+
+    return true;
+}
+
+bool parseStrictDate(const std::string& text, Date& out) {
+    static const std::regex pattern(
+        R"(^(0[1-9]|[12][0-9]|3[01]) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([0-9]{4})$)");
+    if (!std::regex_match(text, pattern)) {
+        return false;
+    }
+    return Date::parse(text, out);
+}
 
 class DriverTableView : public Fl_Table_Row {
 public:
@@ -212,6 +306,23 @@ private:
     std::optional<std::string> promptNonEmpty(const char* prompt, const std::string& initial = "");
     std::optional<std::string> promptString(const char* prompt, const std::string& initial = "");
     std::optional<int>         promptInt(const char* prompt, int initial, int minimum);
+    std::optional<std::string> promptValidated(const char* prompt,
+                                               const std::string& initial,
+                                               const std::function<bool(const std::string&)>& validator,
+                                               const std::string& errorMessage,
+                                               bool allowEmpty = false);
+    std::optional<std::string> promptLicense(const char* prompt,
+                                             const std::string& initial = "",
+                                             bool allowEmpty = false);
+    std::optional<std::string> promptFio(const char* prompt, const std::string& initial = "");
+    std::optional<std::string> promptCarBrand(const char* prompt,
+                                              const std::string& initial = "",
+                                              bool allowEmpty = false);
+    std::optional<std::string> promptAddress(const char* prompt,
+                                             const std::string& initial = "",
+                                             bool allowEmpty = false);
+    std::optional<std::string> promptCost(const char* prompt, const std::string& initial = "");
+    std::optional<Date>        promptDate(const char* prompt, const std::string& initial = "");
     std::optional<DriverRecord> promptDriver(const DriverRecord* initial = nullptr);
     std::optional<OrderRecord>  promptOrder(const OrderRecord* initial = nullptr);
     std::optional<std::size_t>  promptIndexSelection(std::size_t count, const std::string& title);
@@ -507,6 +618,91 @@ std::optional<std::string> IntegratorGUI::promptString(const char* prompt, const
     return std::string(value);
 }
 
+std::optional<std::string> IntegratorGUI::promptValidated(
+    const char* prompt,
+    const std::string& initial,
+    const std::function<bool(const std::string&)>& validator,
+    const std::string& errorMessage,
+    bool allowEmpty) {
+    std::string current = initial;
+    while (true) {
+        std::optional<std::string> value =
+            allowEmpty ? promptString(prompt, current) : promptNonEmpty(prompt, current);
+        if (!value) {
+            return std::nullopt;
+        }
+        if (allowEmpty && value->empty()) {
+            return value;
+        }
+        if (!validator(*value)) {
+            showError(errorMessage);
+            current = *value;
+            continue;
+        }
+        return value;
+    }
+}
+
+std::optional<std::string> IntegratorGUI::promptLicense(const char* prompt,
+                                                        const std::string& initial,
+                                                        bool allowEmpty) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidLicense,
+                           "Номер лицензии должен состоять из заглавных латинских букв и цифр без пробелов.",
+                           allowEmpty);
+}
+
+std::optional<std::string> IntegratorGUI::promptFio(const char* prompt, const std::string& initial) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidFio,
+                           "ФИО должно состоять из трёх слов: первая буква заглавная, остальные строчные.");
+}
+
+std::optional<std::string> IntegratorGUI::promptCarBrand(const char* prompt,
+                                                         const std::string& initial,
+                                                         bool allowEmpty) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidCarBrand,
+                           "Марка должна быть одним словом из букв: первая буква заглавная, остальные строчные.",
+                           allowEmpty);
+}
+
+std::optional<std::string> IntegratorGUI::promptAddress(const char* prompt,
+                                                        const std::string& initial,
+                                                        bool allowEmpty) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidAddress,
+                           "Адрес должен состоять из слов на русском языке с одинарными пробелами и допустимой пунктуацией.",
+                           allowEmpty);
+}
+
+std::optional<std::string> IntegratorGUI::promptCost(const char* prompt, const std::string& initial) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidCost,
+                           "Стоимость должна быть положительным числом с двумя знаками после запятой (пример: 350,00).");
+}
+
+std::optional<Date> IntegratorGUI::promptDate(const char* prompt, const std::string& initial) {
+    std::string current = initial;
+    while (true) {
+        auto value = promptNonEmpty(prompt, current);
+        if (!value) {
+            return std::nullopt;
+        }
+        Date parsed{};
+        if (parseStrictDate(*value, parsed)) {
+            return parsed;
+        }
+        showError("Введите дату в формате DD Mon YYYY (пример: 05 Nov 2025).");
+        current = *value;
+    }
+}
+
 std::optional<int> IntegratorGUI::promptInt(const char* prompt, int initial, int minimum) {
     std::string current = std::to_string(initial);
     while (true) {
@@ -539,13 +735,14 @@ std::optional<int> IntegratorGUI::promptInt(const char* prompt, int initial, int
 }
 
 std::optional<DriverRecord> IntegratorGUI::promptDriver(const DriverRecord* initial) {
-    std::optional<std::string> license = promptNonEmpty("Номер водительского удостоверения:", initial ? initial->licenseNumber : "");
+    std::optional<std::string> license =
+        promptLicense("Номер водительского удостоверения:", initial ? initial->licenseNumber : "");
     if (!license) return std::nullopt;
 
-    std::optional<std::string> fio = promptNonEmpty("ФИО водителя:", initial ? initial->fio : "");
+    std::optional<std::string> fio = promptFio("ФИО водителя:", initial ? initial->fio : "");
     if (!fio) return std::nullopt;
 
-    std::optional<std::string> carBrand = promptNonEmpty("Марка автомобиля:", initial ? initial->carBrand : "");
+    std::optional<std::string> carBrand = promptCarBrand("Марка автомобиля:", initial ? initial->carBrand : "");
     if (!carBrand) return std::nullopt;
 
     DriverRecord record{*license, *fio, *carBrand};
@@ -553,13 +750,14 @@ std::optional<DriverRecord> IntegratorGUI::promptDriver(const DriverRecord* init
 }
 
 std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial) {
-    std::optional<std::string> license = promptNonEmpty("Номер водителя (лицензия):", initial ? initial->licenseNumber : "");
+    std::optional<std::string> license =
+        promptLicense("Номер водителя (лицензия):", initial ? initial->licenseNumber : "");
     if (!license) return std::nullopt;
 
-    std::optional<std::string> address = promptNonEmpty("Адрес заказа:", initial ? initial->address : "");
+    std::optional<std::string> address = promptAddress("Адрес заказа:", initial ? initial->address : "");
     if (!address) return std::nullopt;
 
-    std::optional<std::string> cost = promptNonEmpty("Стоимость:", initial ? initial->cost : "");
+    std::optional<std::string> cost = promptCost("Стоимость:", initial ? initial->cost : "");
     if (!cost) return std::nullopt;
 
     std::string datePromptDefault;
@@ -567,21 +765,12 @@ std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial
         datePromptDefault = initial->date.displayString();
     }
 
-    std::string currentDate = datePromptDefault;
-    Date parsedDate{};
-    while (true) {
-        std::optional<std::string> dateInput = promptNonEmpty("Дата (YYYY-MM-DD или DD Mon YYYY):", currentDate);
-        if (!dateInput) {
-            return std::nullopt;
-        }
-        if (Date::parse(*dateInput, parsedDate)) {
-            break;
-        }
-        showError("Введите корректную дату в формате YYYY-MM-DD или DD Mon YYYY.");
-        currentDate = *dateInput;
+    auto parsedDate = promptDate("Дата (DD Mon YYYY):", datePromptDefault);
+    if (!parsedDate) {
+        return std::nullopt;
     }
 
-    OrderRecord record{*license, *address, *cost, parsedDate};
+    OrderRecord record{*license, *address, *cost, *parsedDate};
     return record;
 }
 
@@ -820,7 +1009,7 @@ void IntegratorGUI::handleUpdateDriver() {
         showError("Хеш-таблица ещё не создана. Создайте таблицу перед изменением водителей.");
         return;
     }
-    auto license = promptNonEmpty("Номер водителя для изменения:");
+    auto license = promptLicense("Номер водителя для изменения:");
     if (!license) return;
 
     auto stored = integrator_.findDriver(*license);
@@ -851,7 +1040,7 @@ void IntegratorGUI::handleRemoveDriver() {
         showError("Хеш-таблица ещё не создана. Создайте таблицу перед удалением водителей.");
         return;
     }
-    auto license = promptNonEmpty("Номер водителя для удаления:");
+    auto license = promptLicense("Номер водителя для удаления:");
     if (!license) return;
 
     int choice = fl_choice("Удалить водителя и связанные заказы?", "Отмена", "Удалить", nullptr);
@@ -873,7 +1062,7 @@ void IntegratorGUI::handleFindDriver() {
         showError("Хеш-таблица ещё не создана.");
         return;
     }
-    auto license = promptNonEmpty("Номер водителя для поиска:");
+    auto license = promptLicense("Номер водителя для поиска:");
     if (!license) return;
 
     auto stored = integrator_.findDriver(*license);
@@ -915,7 +1104,7 @@ void IntegratorGUI::handleUpdateOrder() {
         showError("Хеш-таблица ещё не создана.");
         return;
     }
-    auto license = promptNonEmpty("Номер водителя для выбора заказа:");
+    auto license = promptLicense("Номер водителя для выбора заказа:");
     if (!license) return;
 
     DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
@@ -953,7 +1142,7 @@ void IntegratorGUI::handleRemoveOrder() {
         showError("Дерево заказов ещё не создано.");
         return;
     }
-    auto license = promptNonEmpty("Номер водителя для удаления заказа:");
+    auto license = promptLicense("Номер водителя для удаления заказа:");
     if (!license) return;
 
     DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
@@ -1057,15 +1246,29 @@ void IntegratorGUI::handleGenerateReport() {
         return;
     }
 
-    auto license = promptString("Номер лицензии для отчёта (можно оставить пустым):", "");
+    auto license = promptLicense("Номер лицензии для отчёта (можно оставить пустым):", "", true);
     if (!license) return;
-    auto carBrand = promptString("Марка автомобиля (можно оставить пустым):", "");
+    auto carBrand = promptCarBrand("Марка автомобиля (можно оставить пустым):", "", true);
     if (!carBrand) return;
-    auto address = promptString("Адрес заказа (можно оставить пустым):", "");
+    auto address = promptAddress("Адрес заказа (можно оставить пустым):", "", true);
     if (!address) return;
-    auto fromDate = promptString("Начальная дата (включительно, можно оставить пустым):", "");
+    auto fromDate = promptValidated("Начальная дата (включительно, можно оставить пустым):",
+                                    "",
+                                    [](const std::string& value) {
+                                        Date parsed{};
+                                        return parseStrictDate(value, parsed);
+                                    },
+                                    "Дата должна быть в формате DD Mon YYYY (пример: 05 Nov 2025).",
+                                    true);
     if (!fromDate) return;
-    auto toDate = promptString("Конечная дата (включительно, можно оставить пустым):", "");
+    auto toDate = promptValidated("Конечная дата (включительно, можно оставить пустым):",
+                                  "",
+                                  [](const std::string& value) {
+                                      Date parsed{};
+                                      return parseStrictDate(value, parsed);
+                                  },
+                                  "Дата должна быть в формате DD Mon YYYY (пример: 05 Nov 2025).",
+                                  true);
     if (!toDate) return;
 
     DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
