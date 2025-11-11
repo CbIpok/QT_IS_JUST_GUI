@@ -1,13 +1,14 @@
-﻿#pragma once
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <string>
-#include <sstream>
+#pragma once
 #include <filesystem>
-#include "record2.hpp"
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <vector>
 #include "merge_sort.hpp"
 #include "modnaminecraft.hpp"
+#include "record_utils.hpp"
 
 static std::string trim(const std::string& s) {
     size_t st = s.find_first_not_of(" \t\r\n"),
@@ -25,12 +26,13 @@ int main2() {
     do {
         std::cout << "Enter n (10 ≤ n ≤ 1000000): ";
     } while (!(std::cin >> n) || n < 10 || n > 1000000);
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     std::vector<Record> recs;
     recs.reserve(n);
 
     bool needSort = true;
-    if (fs::exists(sortedFile)) {
+    if (fs::exists(sortedFile) && fs::exists(inputFile)) {
         auto inTime = fs::last_write_time(inputFile);
         auto sortedTime = fs::last_write_time(sortedFile);
         if (sortedTime >= inTime) {
@@ -42,46 +44,23 @@ int main2() {
                 return 1;
             }
             std::string line;
-            int count = 0;
-            while (count < n && std::getline(in, line)) {
-                ++count;
-                std::istringstream iss(line);
+            while (std::getline(in, line) && static_cast<int>(recs.size()) < n) {
                 Record r;
-                std::string field;
-
-                // originalLine
-                if (!std::getline(iss, field, ';')) break;
-                r.originalLine = std::stoi(field);
-
-                // full name: Last First Patronymic
-                if (!std::getline(iss, field, ';')) break;
-                {
-                    std::istringstream ns(field);
-                    ns >> r.lastName >> r.firstName >> r.patronymic;
+                std::string error;
+                if (!record::parseRecordFromCache(line, r, error)) {
+                    std::cerr << "Cache parse error: " << error << ". Rebuilding cache.\n";
+                    needSort = true;
+                    recs.clear();
+                    break;
                 }
-
-                // street
-                if (!std::getline(iss, field, ';')) break;
-                r.street = trim(field);
-
-                // phone
-                if (!std::getline(iss, field, ';')) break;
-                r.phoneNumber = std::stol(field);
-
-                // applicationNumber
-                if (!std::getline(iss, field)) break;
-                r.applicationNumber = std::stoi(field);
-
                 recs.push_back(r);
             }
-            if ((int)recs.size() != n) {
-                std::cerr << "Warning: sorted file has " << recs.size()
-                    << " records (expected " << n << "); re-sorting.\n";
-                needSort = true;
-                recs.clear();
+            if (!needSort && static_cast<int>(recs.size()) == n) {
+                std::cout << "Loaded " << n << " sorted records from cache.\n";
             }
             else {
-                std::cout << "Loaded " << n << " sorted records from cache.\n";
+                needSort = true;
+                recs.clear();
             }
         }
     }
@@ -95,66 +74,25 @@ int main2() {
         }
         std::string line;
         int lineNo = 0;
-        std::cout << "Reading " << n << " records\n";
-        while (lineNo < n && std::getline(in, line)) {
+        std::cout << "Reading records...\n";
+        while (std::getline(in, line)) {
             ++lineNo;
-            const char* buf = line.data();
-            const char* end = buf + line.size();
-
-            // parse fields as before
-            const char* sep1 = buf;
-            while (sep1 < end && *sep1 != ';') ++sep1;
-            if (sep1 == end) continue;
+            std::string trimmed = trim(line);
+            if (trimmed.empty()) continue;
             Record r;
+            std::string error;
+            if (!record::parseRecordFromInput(trimmed, lineNo, r, error)) {
+                std::cerr << "Line " << lineNo << ": " << error << "\n";
+                continue;
+            }
             r.originalLine = lineNo;
-            // name
-            const char* p = buf;
-            const char* sp1 = p;
-            while (sp1 < sep1 && *sp1 != ' ') ++sp1;
-            if (sp1 == sep1) continue;
-            r.lastName.assign(p, sp1 - p);
-            p = sp1 + 1;
-            const char* sp2 = p;
-            while (sp2 < sep1 && *sp2 != ' ') ++sp2;
-            if (sp2 == sep1) continue;
-            r.firstName.assign(p, sp2 - p);
-            p = sp2 + 1;
-            r.patronymic.assign(p, sep1 - p);
-
-            // street
-            const char* streetStart = sep1 + 1;
-            const char* sep2 = streetStart;
-            while (sep2 < end && *sep2 != ';') ++sep2;
-            if (sep2 == end) continue;
-            const char* st = streetStart;
-            while (st < sep2 && isspace(*st)) ++st;
-            const char* ed = sep2 - 1;
-            while (ed > st && isspace(*ed)) --ed;
-            r.street.assign(st, ed - st + 1);
-
-            // phone
-            const char* phoneStart = sep2 + 1;
-            const char* sep3 = phoneStart;
-            while (sep3 < end && *sep3 != ';') ++sep3;
-            if (sep3 == end) continue;
-            long phone = 0;
-            for (const char* q = phoneStart; q < sep3; ++q)
-                if (isdigit(*q)) phone = phone * 10 + (*q - '0');
-            r.phoneNumber = phone;
-
-            // application number
-            const char* appStart = sep3 + 1;
-            int app = 0;
-            while (appStart < end && !isdigit(*appStart)) ++appStart;
-            for (const char* q = appStart; q < end && isdigit(*q); ++q)
-                app = app * 10 + (*q - '0');
-            r.applicationNumber = app;
-
             recs.push_back(r);
-            if (lineNo % (n / 10 ? n / 10 : 1) == 0 || lineNo == n)
-                std::cout << "  parsed " << lineNo << "/" << n << "\n";
+            if (static_cast<int>(recs.size()) == n) break;
+            if (lineNo % (n / 10 ? n / 10 : 1) == 0) {
+                std::cout << "  parsed " << recs.size() << "/" << n << " valid records\n";
+            }
         }
-        if ((int)recs.size() < n) {
+        if (static_cast<int>(recs.size()) < n) {
             std::cerr << "Error: only " << recs.size()
                 << " valid lines out of requested " << n << "\n";
             return 1;
@@ -171,36 +109,43 @@ int main2() {
             return 1;
         }
         for (const auto& r : recs) {
-            out << r.originalLine << ";"
-                << r.lastName << " " << r.firstName << " " << r.patronymic << ";"
-                << r.street << ";"
-                << r.phoneNumber << ";"
-                << r.applicationNumber << "\n";
+            out << record::serializeRecord(r) << "\n";
         }
     }
 
-    // Prepare keys for search
+    // Prepare keys for search (by cost)
     std::vector<int> keys;
     keys.reserve(n);
     for (const auto& r : recs)
-        keys.push_back(r.applicationNumber);
+        keys.push_back(r.costKopecks);
 
     // Binary search
-    int searchKey;
-    std::cout << "Enter application number to search: ";
-    while (!(std::cin >> searchKey)) {
-        std::cin.clear();
-        std::cin.ignore(1 << 20, '\n');
-        std::cout << "Enter an integer: ";
+    std::string costStr;
+    std::cout << "Enter cost to search (format 123,45): ";
+    std::getline(std::cin, costStr);
+    costStr = trim(costStr);
+    int searchCost = 0;
+    std::string error;
+    while (!record::validateCost(costStr, searchCost, error)) {
+        std::cout << "Ошибка: " << error << "\nВведите стоимость повторно: ";
+        std::getline(std::cin, costStr);
+        costStr = trim(costStr);
     }
 
     std::cout << "Starting binary search...\n";
-    auto binRes = binarySearch(keys, searchKey);
+    auto binRes = binarySearch(keys, searchCost);
     if (binRes.first >= 0) {
+        const Record& found = recs[binRes.first];
         std::cout << "Binary search: found original line "
-            << recs[binRes.first].originalLine
+            << found.originalLine
             << " (pos " << binRes.first + 1 << "), steps "
             << binRes.second << "\n";
+        std::cout << "  License: " << found.licenseNumber << "\n"
+            << "  FIO: " << found.fio << "\n"
+            << "  Brand: " << found.carBrand << "\n"
+            << "  Address: " << found.pickupAddress << "\n"
+            << "  Cost: " << record::formatCost(found.costKopecks) << "\n"
+            << "  Date: " << found.date << "\n";
     }
     else {
         std::cout << "Binary search: not found, steps " << binRes.second << "\n";
@@ -208,7 +153,7 @@ int main2() {
 
     // Linear search
     std::cout << "Starting linear search...\n";
-    auto linRes = linearSearch(keys, searchKey);
+    auto linRes = linearSearch(keys, searchCost);
     if (!linRes.first.empty()) {
         std::cout << "Linear search: found at original lines";
         for (int idx : linRes.first)
@@ -221,3 +166,4 @@ int main2() {
 
     return 0;
 }
+

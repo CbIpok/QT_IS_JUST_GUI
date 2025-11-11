@@ -32,5 +32,8 @@ void mergeSort(Record arr[], int left, int right) {
 }
 
 bool compositeCompare(const Record& a, const Record& b) {
-    return a.applicationNumber < b.applicationNumber;
+    if (a.costKopecks != b.costKopecks)
+        return a.costKopecks < b.costKopecks;
+    return a.licenseNumber < b.licenseNumber;
 }
+
