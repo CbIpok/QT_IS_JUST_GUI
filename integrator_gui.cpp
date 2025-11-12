@@ -19,299 +19,18 @@
 #include <FL/fl_draw.H>
 
 #include <algorithm>
+#include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <optional>
-#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
 
 #include "data_integrator.hpp"
+#include "validation.hpp"
 
 namespace {
-
-constexpr char32_t kCyrillicUpperA = U'\u0410';
-constexpr char32_t kCyrillicUpperYa = U'\u042F';
-constexpr char32_t kCyrillicLowerA = U'\u0430';
-constexpr char32_t kCyrillicLowerYa = U'\u044F';
-constexpr char32_t kCyrillicUpperYo = U'\u0401';
-constexpr char32_t kCyrillicLowerYo = U'\u0451';
-
-bool decodeUtf8(const std::string& text, std::u32string& out) {
-    out.clear();
-
-    std::size_t i = 0;
-    while (i < text.size()) {
-        unsigned char byte = static_cast<unsigned char>(text[i]);
-        char32_t codePoint = 0;
-        std::size_t remaining = 0;
-
-        if ((byte & 0x80) == 0) {
-            codePoint = byte;
-            remaining = 0;
-        }
-        else if ((byte & 0xE0) == 0xC0) {
-            codePoint = byte & 0x1F;
-            remaining = 1;
-        }
-        else if ((byte & 0xF0) == 0xE0) {
-            codePoint = byte & 0x0F;
-            remaining = 2;
-        }
-        else if ((byte & 0xF8) == 0xF0) {
-            codePoint = byte & 0x07;
-            remaining = 3;
-        }
-        else {
-            return false;
-        }
-
-        if (i + remaining >= text.size()) {
-            return false;
-        }
-
-        for (std::size_t j = 0; j < remaining; ++j) {
-            unsigned char continuation = static_cast<unsigned char>(text[i + j + 1]);
-            if ((continuation & 0xC0) != 0x80) {
-                return false;
-            }
-            codePoint = (codePoint << 6) | (continuation & 0x3F);
-        }
-
-        if ((remaining == 1 && codePoint < 0x80) || (remaining == 2 && codePoint < 0x800)
-            || (remaining == 3 && codePoint < 0x10000)) {
-            return false;
-        }
-
-        if (codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
-            return false;
-        }
-
-        out.push_back(codePoint);
-        i += remaining + 1;
-    }
-
-    return true;
-}
-
-bool isDigit(char32_t codePoint) {
-    return codePoint >= U'0' && codePoint <= U'9';
-}
-
-bool isLatinUpper(char32_t codePoint) {
-    return codePoint >= U'A' && codePoint <= U'Z';
-}
-
-bool isLatinLower(char32_t codePoint) {
-    return codePoint >= U'a' && codePoint <= U'z';
-}
-
-bool isRussianUpper(char32_t codePoint) {
-    return (codePoint >= kCyrillicUpperA && codePoint <= kCyrillicUpperYa) || codePoint == kCyrillicUpperYo;
-}
-
-bool isRussianLower(char32_t codePoint) {
-    return (codePoint >= kCyrillicLowerA && codePoint <= kCyrillicLowerYa) || codePoint == kCyrillicLowerYo;
-}
-
-bool isRussianLetter(char32_t codePoint) {
-    return isRussianUpper(codePoint) || isRussianLower(codePoint);
-}
-
-bool splitBySpaces(const std::string& value, std::vector<std::string>& words) {
-    words.clear();
-    if (value.empty() || value.front() == ' ' || value.back() == ' ') {
-        return false;
-    }
-
-    std::size_t start = 0;
-    while (start < value.size()) {
-        std::size_t end = value.find(' ', start);
-        std::size_t length = (end == std::string::npos) ? value.size() - start : end - start;
-        if (length == 0) {
-            return false;
-        }
-        words.emplace_back(value.substr(start, length));
-        if (end == std::string::npos) {
-            break;
-        }
-        start = end + 1;
-    }
-
-    return true;
-}
-
-bool isValidLicense(const std::string& value) {
-    if (value.empty()) {
-        return false;
-    }
-    for (char ch : value) {
-        if (!(ch >= 'A' && ch <= 'Z') && !(ch >= '0' && ch <= '9')) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool isValidFio(const std::string& value) {
-    std::vector<std::string> parts;
-    if (!splitBySpaces(value, parts) || parts.size() != 3) {
-        return false;
-    }
-
-    for (const std::string& part : parts) {
-        std::u32string codePoints;
-        if (!decodeUtf8(part, codePoints) || codePoints.empty()) {
-            return false;
-        }
-        if (!isRussianUpper(codePoints.front())) {
-            return false;
-        }
-        for (std::size_t i = 1; i < codePoints.size(); ++i) {
-            if (!isRussianLower(codePoints[i])) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-bool isValidCarBrand(const std::string& value) {
-    if (value.empty() || value.find(' ') != std::string::npos) {
-        return false;
-    }
-
-    std::u32string codePoints;
-    if (!decodeUtf8(value, codePoints) || codePoints.empty()) {
-        return false;
-    }
-
-    bool useLatin = false;
-    if (isLatinUpper(codePoints.front())) {
-        useLatin = true;
-    }
-    else if (!isRussianUpper(codePoints.front())) {
-        return false;
-    }
-
-    for (std::size_t i = 1; i < codePoints.size(); ++i) {
-        char32_t cp = codePoints[i];
-        if (useLatin) {
-            if (!isLatinLower(cp)) {
-                return false;
-            }
-        }
-        else {
-            if (!isRussianLower(cp)) {
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
-bool isValidAddress(const std::string& value) {
-    std::vector<std::string> tokens;
-    if (!splitBySpaces(value, tokens) || tokens.empty()) {
-        return false;
-    }
-
-    bool first = true;
-    for (const std::string& token : tokens) {
-        std::string core = token;
-        while (!core.empty() && (core.back() == '.' || core.back() == ',')) {
-            core.pop_back();
-        }
-        if (core.empty()) {
-            return false;
-        }
-
-        std::u32string codePoints;
-        if (!decodeUtf8(core, codePoints) || codePoints.empty()) {
-            return false;
-        }
-
-        bool hasLetters = false;
-        bool hasDigits = false;
-        for (char32_t cp : codePoints) {
-            if (isDigit(cp)) {
-                hasDigits = true;
-            }
-            else if (isRussianLetter(cp)) {
-                hasLetters = true;
-            }
-            else {
-                return false;
-            }
-        }
-
-        if (hasLetters && hasDigits) {
-            return false;
-        }
-
-        if (hasLetters) {
-            if (!isRussianUpper(codePoints.front())) {
-                return false;
-            }
-            for (std::size_t i = 1; i < codePoints.size(); ++i) {
-                if (!isRussianLower(codePoints[i])) {
-                    return false;
-                }
-            }
-        }
-        else {
-            if (first) {
-                return false;
-            }
-        }
-
-        first = false;
-    }
-
-    return true;
-}
-
-bool isValidCost(const std::string& value) {
-    if (value.empty()) {
-        return false;
-    }
-
-    std::size_t commaPos = value.find(',');
-    if (commaPos == std::string::npos) {
-        return false;
-    }
-
-    std::string integerPart = value.substr(0, commaPos);
-    std::string fractionalPart = value.substr(commaPos + 1);
-
-    if (integerPart.empty() || fractionalPart.size() != 2) {
-        return false;
-    }
-
-    if (!std::all_of(integerPart.begin(), integerPart.end(), [](unsigned char ch) { return ch >= '0' && ch <= '9'; })
-        || !std::all_of(fractionalPart.begin(), fractionalPart.end(), [](unsigned char ch) { return ch >= '0' && ch <= '9'; })) {
-        return false;
-    }
-
-    bool integerAllZeros = std::all_of(integerPart.begin(), integerPart.end(), [](char ch) { return ch == '0'; });
-    if (integerAllZeros && fractionalPart == "00") {
-        return false;
-    }
-
-    return true;
-}
-
-bool parseStrictDate(const std::string& text, Date& out) {
-    static const std::regex pattern(
-        R"(^(0[1-9]|[12][0-9]|3[01]) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([0-9]{4})$)");
-    if (!std::regex_match(text, pattern)) {
-        return false;
-    }
-    return Date::parse(text, out);
-}
-
 class DriverTableView : public Fl_Table_Row {
 public:
     DriverTableView(int X, int Y, int W, int H, DataIntegrator& integrator)
@@ -493,7 +212,7 @@ private:
     void updateStatus(const std::string& message);
     void showInfo(const std::string& message);
     void showError(const std::string& message);
-    void showTextWindow(const std::string& title, const std::string& content);
+    void showTextWindow(const std::string& title, const std::string& content, bool allowSave = false);
 
     std::optional<std::string> promptNonEmpty(const char* prompt, const std::string& initial = "");
     std::optional<std::string> promptString(const char* prompt, const std::string& initial = "");
@@ -752,23 +471,74 @@ void IntegratorGUI::showError(const std::string& message) {
     fl_alert("%s", message.c_str());
 }
 
-void IntegratorGUI::showTextWindow(const std::string& title, const std::string& content) {
+void IntegratorGUI::showTextWindow(const std::string& title, const std::string& content, bool allowSave) {
+    struct TextWindowContext {
+        Fl_Text_Display* display;
+        Fl_Text_Buffer*  buffer;
+    };
+
     Fl_Double_Window* window = new Fl_Double_Window(640, 480, title.c_str());
     window->begin();
-    Fl_Text_Display* display = new Fl_Text_Display(10, 10, 620, 430);
+    Fl_Text_Display* display = new Fl_Text_Display(10, 10, 620, allowSave ? 420 : 460);
     display->box(FL_DOWN_BOX);
     display->textfont(FL_COURIER);
     display->textsize(13);
     Fl_Text_Buffer* buffer = new Fl_Text_Buffer();
     buffer->text(content.c_str());
     display->buffer(buffer);
+
+    auto* context = new TextWindowContext{display, buffer};
+
+    if (allowSave) {
+        Fl_Button* saveButton = new Fl_Button(10, 440, 140, 30, "Сохранить...");
+        saveButton->callback([](Fl_Widget*, void* data) {
+            auto* ctx = static_cast<TextWindowContext*>(data);
+            if (!ctx || !ctx->buffer) {
+                return;
+            }
+
+            Fl_Native_File_Chooser chooser(Fl_Native_File_Chooser::BROWSE_SAVE_FILE);
+            chooser.options(Fl_Native_File_Chooser::SAVEAS_CONFIRM);
+            chooser.title("Сохранить отчёт");
+            chooser.filter("Text Files\t*.txt\nAll Files\t*.*\n");
+
+            if (chooser.show() != 0) {
+                return;
+            }
+
+            const char* filename = chooser.filename();
+            if (!filename || !*filename) {
+                return;
+            }
+
+            std::ofstream output(filename, std::ios::binary);
+            if (!output) {
+                fl_message_title("Ошибка");
+                fl_alert("Не удалось открыть файл для записи.");
+                return;
+            }
+
+            char* textPtr = ctx->buffer->text();
+            std::string toWrite;
+            if (textPtr) {
+                toWrite.assign(textPtr);
+                std::free(textPtr);
+            }
+
+            output << toWrite;
+            if (!output) {
+                fl_message_title("Ошибка");
+                fl_alert("Не удалось сохранить файл полностью.");
+                return;
+            }
+
+            fl_message_title("Сохранено");
+            fl_message("Отчёт сохранён.");
+        }, context);
+    }
+
     window->resizable(display);
     window->end();
-    struct TextWindowContext {
-        Fl_Text_Display* display;
-        Fl_Text_Buffer*  buffer;
-    };
-    auto* context = new TextWindowContext{display, buffer};
     window->callback([](Fl_Widget* widget, void* data) {
         auto* ctx = static_cast<TextWindowContext*>(data);
         if (ctx) {
@@ -840,7 +610,7 @@ std::optional<std::string> IntegratorGUI::promptLicense(const char* prompt,
                                                         bool allowEmpty) {
     return promptValidated(prompt,
                            initial,
-                           isValidLicense,
+                           validation::isValidLicense,
                            "Номер лицензии должен состоять из заглавных латинских букв и цифр без пробелов.",
                            allowEmpty);
 }
@@ -848,7 +618,7 @@ std::optional<std::string> IntegratorGUI::promptLicense(const char* prompt,
 std::optional<std::string> IntegratorGUI::promptFio(const char* prompt, const std::string& initial) {
     return promptValidated(prompt,
                            initial,
-                           isValidFio,
+                           validation::isValidFio,
                            "ФИО должно состоять из трёх слов: первая буква заглавная, остальные строчные.");
 }
 
@@ -857,7 +627,7 @@ std::optional<std::string> IntegratorGUI::promptCarBrand(const char* prompt,
                                                          bool allowEmpty) {
     return promptValidated(prompt,
                            initial,
-                           isValidCarBrand,
+                           validation::isValidCarBrand,
                            "Марка должна быть одним словом из букв: первая буква заглавная, остальные строчные.",
                            allowEmpty);
 }
@@ -867,7 +637,7 @@ std::optional<std::string> IntegratorGUI::promptAddress(const char* prompt,
                                                         bool allowEmpty) {
     return promptValidated(prompt,
                            initial,
-                           isValidAddress,
+                           validation::isValidAddress,
                            "Адрес должен состоять из слов на русском языке с одинарными пробелами и допустимой пунктуацией.",
                            allowEmpty);
 }
@@ -875,7 +645,7 @@ std::optional<std::string> IntegratorGUI::promptAddress(const char* prompt,
 std::optional<std::string> IntegratorGUI::promptCost(const char* prompt, const std::string& initial) {
     return promptValidated(prompt,
                            initial,
-                           isValidCost,
+                           validation::isValidCost,
                            "Стоимость должна быть положительным числом с двумя знаками после запятой (пример: 350,00).");
 }
 
@@ -887,7 +657,7 @@ std::optional<Date> IntegratorGUI::promptDate(const char* prompt, const std::str
             return std::nullopt;
         }
         Date parsed{};
-        if (parseStrictDate(*value, parsed)) {
+        if (validation::parseDate(*value, parsed)) {
             return parsed;
         }
         showError("Введите дату в формате DD Mon YYYY (пример: 05 Nov 2025).");
@@ -1448,7 +1218,7 @@ void IntegratorGUI::handleGenerateReport() {
                                     "",
                                     [](const std::string& value) {
                                         Date parsed{};
-                                        return parseStrictDate(value, parsed);
+                                        return validation::parseDate(value, parsed);
                                     },
                                     "Дата должна быть в формате DD Mon YYYY (пример: 05 Nov 2025).",
                                     true);
@@ -1457,7 +1227,7 @@ void IntegratorGUI::handleGenerateReport() {
                                   "",
                                   [](const std::string& value) {
                                       Date parsed{};
-                                      return parseStrictDate(value, parsed);
+                                      return validation::parseDate(value, parsed);
                                   },
                                   "Дата должна быть в формате DD Mon YYYY (пример: 05 Nov 2025).",
                                   true);
@@ -1465,7 +1235,7 @@ void IntegratorGUI::handleGenerateReport() {
 
     DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
     std::string text = integrator_.formatReport(entries);
-    showTextWindow("Отчёт по водителю", text);
+    showTextWindow("Отчёт по водителю", text, true);
 }
 
 void IntegratorGUI::CallbackLoadDrivers(Fl_Widget*, void* data) {

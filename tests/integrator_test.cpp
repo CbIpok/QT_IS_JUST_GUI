@@ -311,8 +311,8 @@ TEST(DataIntegratorTest, IntegratorSavesToFile) {
         "DL001|Испытатель Альфа Сергеевич|Tesla\n"
         "DL002|Испытатель Бета Андреевич|Audi\n"
         "orders 2\n"
-        "DL001|Улица Опытная 7|100,00|2024-12-31\n"
-        "DL002|Улица Опытная 8|200,00|2025-01-01\n";
+        "DL001|Улица Опытная 7|100,00|31 Dec 2024\n"
+        "DL002|Улица Опытная 8|200,00|01 Jan 2025\n";
     EXPECT_EQ(buffer.str(), expected);
 
     RemoveIfExists(tempPath);
@@ -372,8 +372,8 @@ TEST(DataIntegratorTest, IntegratorSavesOrdersSeparately) {
 
     std::string expected =
         "orders 2\n"
-        "DL300|Проспект Центральный 10|150,00|2024-05-01\n"
-        "DL400|Проспект Северный 12|210,00|2024-05-02\n";
+        "DL300|Проспект Центральный 10|150,00|01 May 2024\n"
+        "DL400|Проспект Северный 12|210,00|02 May 2024\n";
     EXPECT_EQ(buffer.str(), expected);
 
     RemoveIfExists(tempPath);

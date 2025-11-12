@@ -287,8 +287,8 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
     auto results = integrator.generateReport(driver.licenseNumber,
                                              driver.carBrand,
                                              matchOrder.address,
-                                             "2025-02-01",
-                                             "2025-02-28");
+                                             "01 Feb 2025",
+                                             "28 Feb 2025");
     ASSERT_EQ(results.size(), 1u);
     EXPECT_EQ(results.front().address, matchOrder.address);
     EXPECT_EQ(results.front().date, matchOrder.date.displayString());
@@ -300,15 +300,15 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
     auto none = integrator.generateReport(driver.licenseNumber,
                                           "IncorrectBrand",
                                           matchOrder.address,
-                                          "2025-02-01",
-                                          "2025-02-28");
+                                          "01 Feb 2025",
+                                          "28 Feb 2025");
     EXPECT_TRUE(none.empty());
 
     auto outsideRange = integrator.generateReport(driver.licenseNumber,
                                                   driver.carBrand,
                                                   matchOrder.address,
-                                                  "2025-03-01",
-                                                  "2025-03-30");
+                                                  "01 Mar 2025",
+                                                  "30 Mar 2025");
     ASSERT_EQ(outsideRange.size(), 1u);
     EXPECT_EQ(outsideRange.front().date, laterOrder.date.displayString());
 }
@@ -464,8 +464,8 @@ TEST(DataIntegratorUseCasesTest, UseCase22_SaveTwoDriversAndOrders) {
         "DL001|Испытатель Альфа Сергеевич|Tesla\n"
         "DL002|Испытатель Бета Андреевич|Audi\n"
         "orders 2\n"
-        "DL001|Улица Опытная 7|100,00|2024-12-31\n"
-        "DL002|Улица Опытная 8|200,00|2025-01-01\n";
+        "DL001|Улица Опытная 7|100,00|31 Dec 2024\n"
+        "DL002|Улица Опытная 8|200,00|01 Jan 2025\n";
 
     EXPECT_EQ(buffer.str(), expected);
 
