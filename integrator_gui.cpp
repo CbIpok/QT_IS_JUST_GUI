@@ -1,0 +1,1569 @@
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
+#if defined(_WIN32) && !defined(WIN32)
+#define WIN32
+#endif
+
+#include <FL/Fl.H>
+#include <FL/Fl_Box.H>
+#include <FL/Fl_Button.H>
+#include <FL/Fl_Double_Window.H>
+#include <FL/Fl_Menu_Bar.H>
+#include <FL/Fl_Native_File_Chooser.H>
+#include <FL/Fl_Text_Buffer.H>
+#include <FL/Fl_Text_Display.H>
+#include <FL/Fl_Table_Row.H>
+#include <FL/fl_ask.H>
+#include <FL/fl_draw.H>
+
+#include <algorithm>
+#include <functional>
+#include <optional>
+#include <regex>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "data_integrator.hpp"
+
+namespace {
+
+constexpr char32_t kCyrillicUpperA = U'\u0410';
+constexpr char32_t kCyrillicUpperYa = U'\u042F';
+constexpr char32_t kCyrillicLowerA = U'\u0430';
+constexpr char32_t kCyrillicLowerYa = U'\u044F';
+constexpr char32_t kCyrillicUpperYo = U'\u0401';
+constexpr char32_t kCyrillicLowerYo = U'\u0451';
+
+bool decodeUtf8(const std::string& text, std::u32string& out) {
+    out.clear();
+
+    std::size_t i = 0;
+    while (i < text.size()) {
+        unsigned char byte = static_cast<unsigned char>(text[i]);
+        char32_t codePoint = 0;
+        std::size_t remaining = 0;
+
+        if ((byte & 0x80) == 0) {
+            codePoint = byte;
+            remaining = 0;
+        }
+        else if ((byte & 0xE0) == 0xC0) {
+            codePoint = byte & 0x1F;
+            remaining = 1;
+        }
+        else if ((byte & 0xF0) == 0xE0) {
+            codePoint = byte & 0x0F;
+            remaining = 2;
+        }
+        else if ((byte & 0xF8) == 0xF0) {
+            codePoint = byte & 0x07;
+            remaining = 3;
+        }
+        else {
+            return false;
+        }
+
+        if (i + remaining >= text.size()) {
+            return false;
+        }
+
+        for (std::size_t j = 0; j < remaining; ++j) {
+            unsigned char continuation = static_cast<unsigned char>(text[i + j + 1]);
+            if ((continuation & 0xC0) != 0x80) {
+                return false;
+            }
+            codePoint = (codePoint << 6) | (continuation & 0x3F);
+        }
+
+        if ((remaining == 1 && codePoint < 0x80) || (remaining == 2 && codePoint < 0x800)
+            || (remaining == 3 && codePoint < 0x10000)) {
+            return false;
+        }
+
+        if (codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+            return false;
+        }
+
+        out.push_back(codePoint);
+        i += remaining + 1;
+    }
+
+    return true;
+}
+
+bool isDigit(char32_t codePoint) {
+    return codePoint >= U'0' && codePoint <= U'9';
+}
+
+bool isLatinUpper(char32_t codePoint) {
+    return codePoint >= U'A' && codePoint <= U'Z';
+}
+
+bool isLatinLower(char32_t codePoint) {
+    return codePoint >= U'a' && codePoint <= U'z';
+}
+
+bool isRussianUpper(char32_t codePoint) {
+    return (codePoint >= kCyrillicUpperA && codePoint <= kCyrillicUpperYa) || codePoint == kCyrillicUpperYo;
+}
+
+bool isRussianLower(char32_t codePoint) {
+    return (codePoint >= kCyrillicLowerA && codePoint <= kCyrillicLowerYa) || codePoint == kCyrillicLowerYo;
+}
+
+bool isRussianLetter(char32_t codePoint) {
+    return isRussianUpper(codePoint) || isRussianLower(codePoint);
+}
+
+bool splitBySpaces(const std::string& value, std::vector<std::string>& words) {
+    words.clear();
+    if (value.empty() || value.front() == ' ' || value.back() == ' ') {
+        return false;
+    }
+
+    std::size_t start = 0;
+    while (start < value.size()) {
+        std::size_t end = value.find(' ', start);
+        std::size_t length = (end == std::string::npos) ? value.size() - start : end - start;
+        if (length == 0) {
+            return false;
+        }
+        words.emplace_back(value.substr(start, length));
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+
+    return true;
+}
+
+bool isValidLicense(const std::string& value) {
+    if (value.empty()) {
+        return false;
+    }
+    for (char ch : value) {
+        if (!(ch >= 'A' && ch <= 'Z') && !(ch >= '0' && ch <= '9')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isValidFio(const std::string& value) {
+    std::vector<std::string> parts;
+    if (!splitBySpaces(value, parts) || parts.size() != 3) {
+        return false;
+    }
+
+    for (const std::string& part : parts) {
+        std::u32string codePoints;
+        if (!decodeUtf8(part, codePoints) || codePoints.empty()) {
+            return false;
+        }
+        if (!isRussianUpper(codePoints.front())) {
+            return false;
+        }
+        for (std::size_t i = 1; i < codePoints.size(); ++i) {
+            if (!isRussianLower(codePoints[i])) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool isValidCarBrand(const std::string& value) {
+    if (value.empty() || value.find(' ') != std::string::npos) {
+        return false;
+    }
+
+    std::u32string codePoints;
+    if (!decodeUtf8(value, codePoints) || codePoints.empty()) {
+        return false;
+    }
+
+    bool useLatin = false;
+    if (isLatinUpper(codePoints.front())) {
+        useLatin = true;
+    }
+    else if (!isRussianUpper(codePoints.front())) {
+        return false;
+    }
+
+    for (std::size_t i = 1; i < codePoints.size(); ++i) {
+        char32_t cp = codePoints[i];
+        if (useLatin) {
+            if (!isLatinLower(cp)) {
+                return false;
+            }
+        }
+        else {
+            if (!isRussianLower(cp)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool isValidAddress(const std::string& value) {
+    std::vector<std::string> tokens;
+    if (!splitBySpaces(value, tokens) || tokens.empty()) {
+        return false;
+    }
+
+    bool first = true;
+    for (const std::string& token : tokens) {
+        std::string core = token;
+        while (!core.empty() && (core.back() == '.' || core.back() == ',')) {
+            core.pop_back();
+        }
+        if (core.empty()) {
+            return false;
+        }
+
+        std::u32string codePoints;
+        if (!decodeUtf8(core, codePoints) || codePoints.empty()) {
+            return false;
+        }
+
+        bool hasLetters = false;
+        bool hasDigits = false;
+        for (char32_t cp : codePoints) {
+            if (isDigit(cp)) {
+                hasDigits = true;
+            }
+            else if (isRussianLetter(cp)) {
+                hasLetters = true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        if (hasLetters && hasDigits) {
+            return false;
+        }
+
+        if (hasLetters) {
+            if (!isRussianUpper(codePoints.front())) {
+                return false;
+            }
+            for (std::size_t i = 1; i < codePoints.size(); ++i) {
+                if (!isRussianLower(codePoints[i])) {
+                    return false;
+                }
+            }
+        }
+        else {
+            if (first) {
+                return false;
+            }
+        }
+
+        first = false;
+    }
+
+    return true;
+}
+
+bool isValidCost(const std::string& value) {
+    if (value.empty()) {
+        return false;
+    }
+
+    std::size_t commaPos = value.find(',');
+    if (commaPos == std::string::npos) {
+        return false;
+    }
+
+    std::string integerPart = value.substr(0, commaPos);
+    std::string fractionalPart = value.substr(commaPos + 1);
+
+    if (integerPart.empty() || fractionalPart.size() != 2) {
+        return false;
+    }
+
+    if (!std::all_of(integerPart.begin(), integerPart.end(), [](unsigned char ch) { return ch >= '0' && ch <= '9'; })
+        || !std::all_of(fractionalPart.begin(), fractionalPart.end(), [](unsigned char ch) { return ch >= '0' && ch <= '9'; })) {
+        return false;
+    }
+
+    bool integerAllZeros = std::all_of(integerPart.begin(), integerPart.end(), [](char ch) { return ch == '0'; });
+    if (integerAllZeros && fractionalPart == "00") {
+        return false;
+    }
+
+    return true;
+}
+
+bool parseStrictDate(const std::string& text, Date& out) {
+    static const std::regex pattern(
+        R"(^(0[1-9]|[12][0-9]|3[01]) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) ([0-9]{4})$)");
+    if (!std::regex_match(text, pattern)) {
+        return false;
+    }
+    return Date::parse(text, out);
+}
+
+class DriverTableView : public Fl_Table_Row {
+public:
+    DriverTableView(int X, int Y, int W, int H, DataIntegrator& integrator)
+        : Fl_Table_Row(X, Y, W, H), integrator_(integrator) {
+        row_header(1);
+        row_header_width(40);
+        col_header(1);
+        col_header_height(26);
+        cols(3);
+        col_width(0, 180);
+        col_width(1, 240);
+        col_width(2, 160);
+        end();
+    }
+
+    void refresh() {
+        rows(static_cast<int>(integrator_.driverCount()));
+        redraw();
+    }
+
+protected:
+    void draw_cell(TableContext context, int row, int col, int x, int y, int w, int h) override {
+        switch (context) {
+            case CONTEXT_ROW_HEADER: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                std::string label = std::to_string(row + 1);
+                fl_draw(label.c_str(), x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_COL_HEADER: {
+                static const char* headers[] = {"Лицензия", "ФИО", "Авто"};
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                fl_draw(headers[col], x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_CELL: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_FLAT_BOX, x, y, w, h, FL_WHITE);
+                fl_color(FL_BLACK);
+                auto recordOpt = integrator_.driverAt(static_cast<std::size_t>(row));
+                if (recordOpt.has_value()) {
+                    const DriverRecord& driver = recordOpt.value();
+                    std::string text;
+                    switch (col) {
+                        case 0: text = driver.licenseNumber; break;
+                        case 1: text = driver.fio; break;
+                        case 2: text = driver.carBrand; break;
+                        default: break;
+                    }
+                    fl_draw(text.c_str(), x + 4, y + h - 6);
+                }
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_RC_RESIZE: {
+                int totalWidth = w > 0 ? w : this->w();
+                col_width(0, totalWidth * 0.30);
+                col_width(1, totalWidth * 0.45);
+                col_width(2, totalWidth * 0.25);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+private:
+    DataIntegrator& integrator_;
+};
+
+class OrderTableView : public Fl_Table_Row {
+public:
+    OrderTableView(int X, int Y, int W, int H, DataIntegrator& integrator)
+        : Fl_Table_Row(X, Y, W, H), integrator_(integrator) {
+        row_header(1);
+        row_header_width(40);
+        col_header(1);
+        col_header_height(26);
+        cols(4);
+        col_width(0, 140);
+        col_width(1, 220);
+        col_width(2, 120);
+        col_width(3, 140);
+        end();
+    }
+
+    void refresh() {
+        rows(static_cast<int>(integrator_.orderCount()));
+        redraw();
+    }
+
+protected:
+    void draw_cell(TableContext context, int row, int col, int x, int y, int w, int h) override {
+        switch (context) {
+            case CONTEXT_ROW_HEADER: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                std::string label = std::to_string(row + 1);
+                fl_draw(label.c_str(), x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_COL_HEADER: {
+                static const char* headers[] = {"Лицензия", "Адрес", "Цена", "Дата"};
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_THIN_UP_BOX, x, y, w, h, color());
+                fl_color(FL_BLACK);
+                fl_draw(headers[col], x + 6, y + h - 6);
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_CELL: {
+                fl_push_clip(x, y, w, h);
+                fl_draw_box(FL_FLAT_BOX, x, y, w, h, FL_WHITE);
+                fl_color(FL_BLACK);
+                auto recordOpt = integrator_.orderAt(static_cast<std::size_t>(row));
+                if (recordOpt.has_value()) {
+                    const OrderRecord& order = recordOpt.value();
+                    std::string text;
+                    switch (col) {
+                        case 0: text = order.licenseNumber; break;
+                        case 1: text = order.address; break;
+                        case 2: text = order.cost; break;
+                        case 3: text = order.date.displayString(); break;
+                        default: break;
+                    }
+                    fl_draw(text.c_str(), x + 4, y + h - 6);
+                }
+                fl_pop_clip();
+                break;
+            }
+            case CONTEXT_RC_RESIZE: {
+                int totalWidth = w > 0 ? w : this->w();
+                col_width(0, totalWidth * 0.24);
+                col_width(1, totalWidth * 0.36);
+                col_width(2, totalWidth * 0.18);
+                col_width(3, totalWidth * 0.22);
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+private:
+    DataIntegrator& integrator_;
+};
+
+class IntegratorGUI {
+public:
+    IntegratorGUI();
+    ~IntegratorGUI();
+
+    void show();
+
+private:
+    DataIntegrator integrator_;
+
+    Fl_Double_Window* hashWindow_;
+    Fl_Double_Window* treeWindow_;
+    Fl_Menu_Bar*      hashMenuBar_;
+    Fl_Menu_Bar*      treeMenuBar_;
+    DriverTableView*  driverTable_;
+    OrderTableView*   orderTable_;
+    Fl_Button*        hashDebugButton_;
+    Fl_Button*        treeDebugButton_;
+    Fl_Button*        dateDebugButton_;
+    Fl_Box*           hashStatusBox_;
+    Fl_Box*           treeStatusBox_;
+
+    void refreshDataViews();
+    void updateStatus(const std::string& message);
+    void showInfo(const std::string& message);
+    void showError(const std::string& message);
+    void showTextWindow(const std::string& title, const std::string& content);
+
+    std::optional<std::string> promptNonEmpty(const char* prompt, const std::string& initial = "");
+    std::optional<std::string> promptString(const char* prompt, const std::string& initial = "");
+    std::optional<int>         promptInt(const char* prompt, int initial, int minimum);
+    std::optional<std::string> promptValidated(const char* prompt,
+                                               const std::string& initial,
+                                               const std::function<bool(const std::string&)>& validator,
+                                               const std::string& errorMessage,
+                                               bool allowEmpty = false);
+    std::optional<std::string> promptLicense(const char* prompt,
+                                             const std::string& initial = "",
+                                             bool allowEmpty = false);
+    std::optional<std::string> promptFio(const char* prompt, const std::string& initial = "");
+    std::optional<std::string> promptCarBrand(const char* prompt,
+                                              const std::string& initial = "",
+                                              bool allowEmpty = false);
+    std::optional<std::string> promptAddress(const char* prompt,
+                                             const std::string& initial = "",
+                                             bool allowEmpty = false);
+    std::optional<std::string> promptCost(const char* prompt, const std::string& initial = "");
+    std::optional<Date>        promptDate(const char* prompt, const std::string& initial = "");
+    std::optional<DriverRecord> promptDriver(const DriverRecord* initial = nullptr);
+    std::optional<OrderRecord>  promptOrder(const OrderRecord* initial = nullptr);
+    std::optional<std::size_t>  promptIndexSelection(std::size_t count, const std::string& title);
+    std::optional<std::string>  promptFilePath(const char* dialogTitle,
+                                               const char* manualPrompt,
+                                               Fl_Native_File_Chooser::Type type,
+                                               bool allowEmpty = false);
+
+    void handleLoadDrivers();
+    void handleLoadOrders();
+    void handleSaveDrivers();
+    void handleSaveOrders();
+    void handleClear();
+    void handleCreateDriverTable();
+    void handleClearDriverTableOnly();
+    void handleShowDriverTable();
+
+    void handleAddDriver();
+    void handleUpdateDriver();
+    void handleRemoveDriver();
+    void handleFindDriver();
+
+    void handleAddOrder();
+    void handleUpdateOrder();
+    void handleRemoveOrder();
+    void handleCheckOrder();
+    void handleCreateOrderTree();
+    void handleClearOrderTreeOnly();
+    void handleShowOrderTree();
+    void handleShowDateTree();
+    void handleGenerateReport();
+
+    static void CallbackLoadDrivers(Fl_Widget*, void*);
+    static void CallbackLoadOrders(Fl_Widget*, void*);
+    static void CallbackSaveDrivers(Fl_Widget*, void*);
+    static void CallbackSaveOrders(Fl_Widget*, void*);
+    static void CallbackClear(Fl_Widget*, void*);
+    static void CallbackCreateDriverTable(Fl_Widget*, void*);
+    static void CallbackClearDriverTableOnly(Fl_Widget*, void*);
+    static void CallbackShowDriverTable(Fl_Widget*, void*);
+    static void CallbackAddDriver(Fl_Widget*, void*);
+    static void CallbackUpdateDriver(Fl_Widget*, void*);
+    static void CallbackRemoveDriver(Fl_Widget*, void*);
+    static void CallbackFindDriver(Fl_Widget*, void*);
+    static void CallbackAddOrder(Fl_Widget*, void*);
+    static void CallbackUpdateOrder(Fl_Widget*, void*);
+    static void CallbackRemoveOrder(Fl_Widget*, void*);
+    static void CallbackCheckOrder(Fl_Widget*, void*);
+    static void CallbackCreateOrderTree(Fl_Widget*, void*);
+    static void CallbackClearOrderTreeOnly(Fl_Widget*, void*);
+    static void CallbackShowOrderTree(Fl_Widget*, void*);
+    static void CallbackShowDateTree(Fl_Widget*, void*);
+    static void CallbackGenerateReport(Fl_Widget*, void*);
+};
+
+IntegratorGUI::IntegratorGUI()
+    : integrator_(),
+      hashWindow_(nullptr),
+      treeWindow_(nullptr),
+      hashMenuBar_(nullptr),
+      treeMenuBar_(nullptr),
+      driverTable_(nullptr),
+      orderTable_(nullptr),
+      hashDebugButton_(nullptr),
+      treeDebugButton_(nullptr),
+      dateDebugButton_(nullptr),
+      hashStatusBox_(nullptr),
+      treeStatusBox_(nullptr) {
+    const int windowWidth = 700;
+    const int windowHeight = 700;
+
+    hashWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Водители (хеш-таблица)");
+    hashWindow_->begin();
+
+    const int menuBarHeight = 32;
+    hashMenuBar_ = new Fl_Menu_Bar(0, 0, windowWidth, menuBarHeight);
+    hashMenuBar_->box(FL_THIN_UP_BOX);
+    hashMenuBar_->color(fl_rgb_color(245, 245, 245));
+    hashMenuBar_->textsize(13);
+    hashMenuBar_->add("Загр. вод", 0, &IntegratorGUI::CallbackLoadDrivers, this);
+    hashMenuBar_->add("Выгр. вод", 0, &IntegratorGUI::CallbackSaveDrivers, this);
+    hashMenuBar_->add("Доб", 0, &IntegratorGUI::CallbackAddDriver, this);
+    hashMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateDriver, this);
+    hashMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackFindDriver, this);
+    hashMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveDriver, this);
+    hashMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowDriverTable, this);
+    hashMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateDriverTable, this);
+    hashMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearDriverTableOnly, this);
+    hashMenuBar_->add("Очистить", 0, &IntegratorGUI::CallbackClear, this);
+
+    hashStatusBox_ = new Fl_Box(10, menuBarHeight + 5, windowWidth - 20, 30);
+    hashStatusBox_->box(FL_THIN_DOWN_BOX);
+    hashStatusBox_->labelfont(FL_HELVETICA_BOLD);
+    hashStatusBox_->labelsize(14);
+    hashStatusBox_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
+    hashStatusBox_->copy_label("Готово.");
+
+    const int hashContentTop = menuBarHeight + 40;
+    const int hashContentHeight = windowHeight - hashContentTop - 10;
+
+    Fl_Box* hashLabel = new Fl_Box(10, hashContentTop, windowWidth - 20, 25, "Хеш-таблица водителей");
+    hashLabel->labelfont(FL_HELVETICA_BOLD);
+    hashLabel->labelsize(14);
+    hashLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
+
+    const int driverTableTop = hashContentTop + 25;
+    const int driverButtonHeight = 30;
+    const int driverButtonGap = 10;
+    const int driverTableHeight = hashContentHeight - 25 - driverButtonHeight - driverButtonGap;
+
+    driverTable_ = new DriverTableView(10, driverTableTop, windowWidth - 20, driverTableHeight, integrator_);
+
+    int driverButtonsTop = driverTableTop + driverTableHeight + driverButtonGap;
+    hashDebugButton_ = new Fl_Button(10,
+                                     driverButtonsTop,
+                                     200,
+                                     driverButtonHeight,
+                                     "Отладка хеш-таблицы");
+    hashDebugButton_->callback(&IntegratorGUI::CallbackShowDriverTable, this);
+
+    hashWindow_->end();
+    hashWindow_->resizable(driverTable_);
+
+    treeWindow_ = new Fl_Double_Window(windowWidth, windowHeight, "Заказы (AVL-дерево)");
+    treeWindow_->begin();
+
+    treeMenuBar_ = new Fl_Menu_Bar(0, 0, windowWidth, menuBarHeight);
+    treeMenuBar_->box(FL_THIN_UP_BOX);
+    treeMenuBar_->color(fl_rgb_color(245, 245, 245));
+    treeMenuBar_->textsize(13);
+    treeMenuBar_->add("Загр. зак", 0, &IntegratorGUI::CallbackLoadOrders, this);
+    treeMenuBar_->add("Выгр. зак", 0, &IntegratorGUI::CallbackSaveOrders, this);
+    treeMenuBar_->add("Доб", 0, &IntegratorGUI::CallbackAddOrder, this);
+    treeMenuBar_->add("Изм", 0, &IntegratorGUI::CallbackUpdateOrder, this);
+    treeMenuBar_->add("Найти", 0, &IntegratorGUI::CallbackCheckOrder, this);
+    treeMenuBar_->add("Удалить", 0, &IntegratorGUI::CallbackRemoveOrder, this);
+    treeMenuBar_->add("Табл", 0, &IntegratorGUI::CallbackShowOrderTree, this);
+    treeMenuBar_->add("Табл дат", 0, &IntegratorGUI::CallbackShowDateTree, this);
+    treeMenuBar_->add("Созд Табл", 0, &IntegratorGUI::CallbackCreateOrderTree, this);
+    treeMenuBar_->add("Удалить Табл", 0, &IntegratorGUI::CallbackClearOrderTreeOnly, this);
+    treeMenuBar_->add("Заказы (Генерация отчётов)", 0, &IntegratorGUI::CallbackGenerateReport, this);
+
+    treeStatusBox_ = new Fl_Box(10, menuBarHeight + 5, windowWidth - 20, 30);
+    treeStatusBox_->box(FL_THIN_DOWN_BOX);
+    treeStatusBox_->labelfont(FL_HELVETICA_BOLD);
+    treeStatusBox_->labelsize(14);
+    treeStatusBox_->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
+    treeStatusBox_->copy_label("Готово.");
+
+    const int treeContentTop = menuBarHeight + 40;
+    const int treeContentHeight = windowHeight - treeContentTop - 10;
+
+    Fl_Box* treeLabel = new Fl_Box(10, treeContentTop, windowWidth - 20, 25, "Дерево заказов (AVL)");
+    treeLabel->labelfont(FL_HELVETICA_BOLD);
+    treeLabel->labelsize(14);
+    treeLabel->align(FL_ALIGN_INSIDE | FL_ALIGN_LEFT);
+
+    const int orderTableTop = treeContentTop + 25;
+    const int orderButtonHeight = 30;
+    const int orderButtonGap = 10;
+    const int orderTableHeight = treeContentHeight - 25 - orderButtonHeight - orderButtonGap;
+
+    orderTable_ = new OrderTableView(10, orderTableTop, windowWidth - 20, orderTableHeight, integrator_);
+
+    int orderButtonsTop = orderTableTop + orderTableHeight + orderButtonGap;
+    treeDebugButton_ = new Fl_Button(10,
+                                     orderButtonsTop,
+                                     200,
+                                     orderButtonHeight,
+                                     "Отладка AVL (водители)");
+    treeDebugButton_->callback(&IntegratorGUI::CallbackShowOrderTree, this);
+
+    dateDebugButton_ = new Fl_Button(220,
+                                     orderButtonsTop,
+                                     240,
+                                     orderButtonHeight,
+                                     "Отладка AVL (даты)");
+    dateDebugButton_->callback(&IntegratorGUI::CallbackShowDateTree, this);
+
+    treeWindow_->end();
+    treeWindow_->resizable(orderTable_);
+}
+
+IntegratorGUI::~IntegratorGUI() {
+    delete hashWindow_;
+    delete treeWindow_;
+}
+
+void IntegratorGUI::show() {
+    if (hashWindow_) hashWindow_->show();
+    if (treeWindow_) treeWindow_->show();
+    refreshDataViews();
+}
+
+void IntegratorGUI::refreshDataViews() {
+    std::ostringstream status;
+    status << "Водителей: " << integrator_.driverCount()
+           << " | Заказов: " << integrator_.orderCount();
+    if (hashStatusBox_) hashStatusBox_->copy_label(status.str().c_str());
+    if (treeStatusBox_) treeStatusBox_->copy_label(status.str().c_str());
+
+    if (driverTable_) {
+        driverTable_->refresh();
+    }
+    if (orderTable_) {
+        orderTable_->refresh();
+    }
+
+    if (hashDebugButton_) {
+        if (integrator_.hasDriverTable()) hashDebugButton_->activate();
+        else hashDebugButton_->deactivate();
+    }
+    if (treeDebugButton_) {
+        if (integrator_.hasOrderTree()) treeDebugButton_->activate();
+        else treeDebugButton_->deactivate();
+    }
+    if (dateDebugButton_) {
+        if (integrator_.hasOrderTree()) dateDebugButton_->activate();
+        else dateDebugButton_->deactivate();
+    }
+}
+
+void IntegratorGUI::updateStatus(const std::string& message) {
+    if (hashStatusBox_) hashStatusBox_->copy_label(message.c_str());
+    if (treeStatusBox_) treeStatusBox_->copy_label(message.c_str());
+}
+
+void IntegratorGUI::showInfo(const std::string& message) {
+    fl_message_title("Информация");
+    fl_message("%s", message.c_str());
+}
+
+void IntegratorGUI::showError(const std::string& message) {
+    fl_message_title("Ошибка");
+    fl_alert("%s", message.c_str());
+}
+
+void IntegratorGUI::showTextWindow(const std::string& title, const std::string& content) {
+    Fl_Double_Window* window = new Fl_Double_Window(640, 480, title.c_str());
+    window->begin();
+    Fl_Text_Display* display = new Fl_Text_Display(10, 10, 620, 430);
+    display->box(FL_DOWN_BOX);
+    display->textfont(FL_COURIER);
+    display->textsize(13);
+    Fl_Text_Buffer* buffer = new Fl_Text_Buffer();
+    buffer->text(content.c_str());
+    display->buffer(buffer);
+    window->resizable(display);
+    window->end();
+    struct TextWindowContext {
+        Fl_Text_Display* display;
+        Fl_Text_Buffer*  buffer;
+    };
+    auto* context = new TextWindowContext{display, buffer};
+    window->callback([](Fl_Widget* widget, void* data) {
+        auto* ctx = static_cast<TextWindowContext*>(data);
+        if (ctx) {
+            if (ctx->display) {
+                ctx->display->buffer(nullptr);
+            }
+            delete ctx->buffer;
+            delete ctx;
+        }
+        delete widget;
+    }, context);
+    window->set_non_modal();
+    window->show();
+}
+
+std::optional<std::string> IntegratorGUI::promptNonEmpty(const char* prompt, const std::string& initial) {
+    std::string current = initial;
+    while (true) {
+        const char* value = fl_input("%s", current.c_str(), prompt);
+        if (!value) {
+            return std::nullopt;
+        }
+        std::string result = value;
+        if (result.empty()) {
+            showError("Поле не может быть пустым.");
+            current = result;
+            continue;
+        }
+        return result;
+    }
+}
+
+std::optional<std::string> IntegratorGUI::promptString(const char* prompt, const std::string& initial) {
+    std::string current = initial;
+    const char* value = fl_input("%s", current.c_str(), prompt);
+    if (!value) {
+        return std::nullopt;
+    }
+    return std::string(value);
+}
+
+std::optional<std::string> IntegratorGUI::promptValidated(
+    const char* prompt,
+    const std::string& initial,
+    const std::function<bool(const std::string&)>& validator,
+    const std::string& errorMessage,
+    bool allowEmpty) {
+    std::string current = initial;
+    while (true) {
+        std::optional<std::string> value =
+            allowEmpty ? promptString(prompt, current) : promptNonEmpty(prompt, current);
+        if (!value) {
+            return std::nullopt;
+        }
+        if (allowEmpty && value->empty()) {
+            return value;
+        }
+        if (!validator(*value)) {
+            showError(errorMessage);
+            current = *value;
+            continue;
+        }
+        return value;
+    }
+}
+
+std::optional<std::string> IntegratorGUI::promptLicense(const char* prompt,
+                                                        const std::string& initial,
+                                                        bool allowEmpty) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidLicense,
+                           "Номер лицензии должен состоять из заглавных латинских букв и цифр без пробелов.",
+                           allowEmpty);
+}
+
+std::optional<std::string> IntegratorGUI::promptFio(const char* prompt, const std::string& initial) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidFio,
+                           "ФИО должно состоять из трёх слов: первая буква заглавная, остальные строчные.");
+}
+
+std::optional<std::string> IntegratorGUI::promptCarBrand(const char* prompt,
+                                                         const std::string& initial,
+                                                         bool allowEmpty) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidCarBrand,
+                           "Марка должна быть одним словом из букв: первая буква заглавная, остальные строчные.",
+                           allowEmpty);
+}
+
+std::optional<std::string> IntegratorGUI::promptAddress(const char* prompt,
+                                                        const std::string& initial,
+                                                        bool allowEmpty) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidAddress,
+                           "Адрес должен состоять из слов на русском языке с одинарными пробелами и допустимой пунктуацией.",
+                           allowEmpty);
+}
+
+std::optional<std::string> IntegratorGUI::promptCost(const char* prompt, const std::string& initial) {
+    return promptValidated(prompt,
+                           initial,
+                           isValidCost,
+                           "Стоимость должна быть положительным числом с двумя знаками после запятой (пример: 350,00).");
+}
+
+std::optional<Date> IntegratorGUI::promptDate(const char* prompt, const std::string& initial) {
+    std::string current = initial;
+    while (true) {
+        auto value = promptNonEmpty(prompt, current);
+        if (!value) {
+            return std::nullopt;
+        }
+        Date parsed{};
+        if (parseStrictDate(*value, parsed)) {
+            return parsed;
+        }
+        showError("Введите дату в формате DD Mon YYYY (пример: 05 Nov 2025).");
+        current = *value;
+    }
+}
+
+std::optional<int> IntegratorGUI::promptInt(const char* prompt, int initial, int minimum) {
+    std::string current = std::to_string(initial);
+    while (true) {
+        const char* value = fl_input("%s", current.c_str(), prompt);
+        if (!value) {
+            return std::nullopt;
+        }
+        std::string result = value;
+        if (result.empty()) {
+            showError("Введите число.");
+            current = result;
+            continue;
+        }
+        try {
+            int parsed = std::stoi(result);
+            if (parsed < minimum) {
+                std::ostringstream error;
+                error << "Значение должно быть не меньше " << minimum << ".";
+                showError(error.str());
+                current = result;
+                continue;
+            }
+            return parsed;
+        }
+        catch (...) {
+            showError("Введите корректное целое число.");
+            current = result;
+        }
+    }
+}
+
+std::optional<DriverRecord> IntegratorGUI::promptDriver(const DriverRecord* initial) {
+    std::optional<std::string> license =
+        promptLicense("Номер водительского удостоверения:", initial ? initial->licenseNumber : "");
+    if (!license) return std::nullopt;
+
+    std::optional<std::string> fio = promptFio("ФИО водителя:", initial ? initial->fio : "");
+    if (!fio) return std::nullopt;
+
+    std::optional<std::string> carBrand = promptCarBrand("Марка автомобиля:", initial ? initial->carBrand : "");
+    if (!carBrand) return std::nullopt;
+
+    DriverRecord record{*license, *fio, *carBrand};
+    return record;
+}
+
+std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial) {
+    std::optional<std::string> license =
+        promptLicense("Номер водителя (лицензия):", initial ? initial->licenseNumber : "");
+    if (!license) return std::nullopt;
+
+    std::optional<std::string> address = promptAddress("Адрес заказа:", initial ? initial->address : "");
+    if (!address) return std::nullopt;
+
+    std::optional<std::string> cost = promptCost("Стоимость:", initial ? initial->cost : "");
+    if (!cost) return std::nullopt;
+
+    std::string datePromptDefault;
+    if (initial && initial->date.isValid()) {
+        datePromptDefault = initial->date.displayString();
+    }
+
+    auto parsedDate = promptDate("Дата (DD Mon YYYY):", datePromptDefault);
+    if (!parsedDate) {
+        return std::nullopt;
+    }
+
+    OrderRecord record{*license, *address, *cost, *parsedDate};
+    return record;
+}
+
+std::optional<std::size_t> IntegratorGUI::promptIndexSelection(std::size_t count, const std::string& title) {
+    if (count == 0) {
+        return std::nullopt;
+    }
+
+    std::string current = "1";
+    while (true) {
+        const char* input = fl_input("%s", current.c_str(), title.c_str());
+        if (!input) {
+            return std::nullopt;
+        }
+        std::string value = input;
+        if (value.empty()) {
+            showError("Введите номер записи.");
+            current = value;
+            continue;
+        }
+        try {
+            long parsed = std::stol(value);
+            if (parsed < 1 || parsed > static_cast<long>(count)) {
+                std::ostringstream message;
+                message << "Введите число от 1 до " << count << ".";
+                showError(message.str());
+                current = value;
+                continue;
+            }
+            return static_cast<std::size_t>(parsed - 1);
+        }
+        catch (...) {
+            showError("Введите корректное число.");
+            current = value;
+        }
+    }
+}
+
+std::optional<std::string> IntegratorGUI::promptFilePath(const char* dialogTitle,
+                                                         const char* manualPrompt,
+                                                         Fl_Native_File_Chooser::Type type,
+                                                         bool allowEmpty) {
+    Fl_Native_File_Chooser chooser(type);
+    chooser.title(dialogTitle);
+    if (type == Fl_Native_File_Chooser::BROWSE_SAVE_FILE) {
+        chooser.options(Fl_Native_File_Chooser::SAVEAS_CONFIRM);
+    }
+
+    int result = chooser.show();
+    if (result == 0) {
+        const char* filename = chooser.filename();
+        if (filename && *filename) {
+            return std::string(filename);
+        }
+        return allowEmpty ? std::optional<std::string>(std::string()) : std::nullopt;
+    }
+    if (result == 1) {
+        if (allowEmpty) {
+            return promptString(manualPrompt);
+        }
+        return promptNonEmpty(manualPrompt);
+    }
+
+    std::ostringstream error;
+    error << "Ошибка выбора файла: " << chooser.errmsg();
+    showError(error.str());
+    return std::nullopt;
+}
+
+void IntegratorGUI::handleLoadDrivers() {
+    auto path = promptFilePath("Выбор файла водителей",
+                               "Введите путь к файлу водителей:",
+                               Fl_Native_File_Chooser::BROWSE_FILE,
+                               false);
+    if (!path) return;
+
+    std::size_t requestedCapacity = 0;
+    if (!integrator_.hasDriverTable()) {
+        std::size_t currentCapacity = integrator_.driverTableCapacity();
+        if (currentCapacity == 0) {
+            currentCapacity = 1;
+        }
+        int defaultSize = static_cast<int>(currentCapacity);
+        auto sizeOpt = promptInt("Начальный размер хеш-таблицы:", defaultSize, 1);
+        if (!sizeOpt) return;
+        requestedCapacity = static_cast<std::size_t>(*sizeOpt);
+    }
+
+    std::size_t previousOrderCount = integrator_.orderCount();
+
+    if (integrator_.loadDriversFromFile(*path, requestedCapacity)) {
+        std::size_t newOrderCount = integrator_.orderCount();
+        std::string  status = (newOrderCount > previousOrderCount)
+                                 ? "Файл водителей и заказов загружен."
+                                 : "Файл водителей загружен.";
+        updateStatus(status);
+        refreshDataViews();
+        showInfo(status);
+    }
+    else {
+        showError("Не удалось загрузить файл водителей.");
+    }
+}
+
+void IntegratorGUI::handleLoadOrders() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Сначала загрузите или создайте хеш-таблицу водителей.");
+        return;
+    }
+
+    auto path = promptFilePath("Выбор файла заказов",
+                               "Введите путь к файлу заказов:",
+                               Fl_Native_File_Chooser::BROWSE_FILE,
+                               false);
+    if (!path) return;
+
+    if (integrator_.loadOrdersFromFile(*path)) {
+        updateStatus("Файл заказов загружен.");
+        refreshDataViews();
+        showInfo("Заказы загружены.");
+    }
+    else {
+        showError("Не удалось загрузить файл заказов. Проверьте данные и наличие водителей.");
+    }
+}
+
+void IntegratorGUI::handleSaveDrivers() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Сначала создайте или загрузите хеш-таблицу водителей.");
+        return;
+    }
+
+    auto path = promptFilePath("Сохранение водителей",
+                               "Введите путь для сохранения водителей:",
+                               Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                               false);
+    if (!path) return;
+
+    if (integrator_.saveDriversToFile(*path)) {
+        updateStatus("Водители сохранены.");
+        showInfo("Файл с водителями сохранён.");
+    }
+    else {
+        showError("Не удалось сохранить файл водителей.");
+    }
+}
+
+void IntegratorGUI::handleSaveOrders() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Сначала создайте или загрузите дерево заказов.");
+        return;
+    }
+
+    auto path = promptFilePath("Сохранение заказов",
+                               "Введите путь для сохранения заказов:",
+                               Fl_Native_File_Chooser::BROWSE_SAVE_FILE,
+                               false);
+    if (!path) return;
+
+    if (integrator_.saveOrdersToFile(*path)) {
+        updateStatus("Заказы сохранены.");
+        showInfo("Файл с заказами сохранён.");
+    }
+    else {
+        showError("Не удалось сохранить файл заказов.");
+    }
+}
+
+void IntegratorGUI::handleClear() {
+    int choice = fl_choice("Очистить все данные интегратора?", "Отмена", "Очистить", nullptr);
+    if (choice == 1) {
+        integrator_.clear();
+        refreshDataViews();
+        updateStatus("Интегратор очищен.");
+    }
+}
+
+void IntegratorGUI::handleCreateDriverTable() {
+    int defaultSize = static_cast<int>(integrator_.driverTableCapacity());
+    auto sizeOpt = promptInt("Начальный размер хеш-таблицы:", defaultSize, 1);
+    if (!sizeOpt) return;
+
+    if (integrator_.createDriverTable(static_cast<std::size_t>(*sizeOpt))) {
+        refreshDataViews();
+        updateStatus("Хеш-таблица создана.");
+    }
+    else {
+        showError("Не удалось создать хеш-таблицу.");
+    }
+}
+
+void IntegratorGUI::handleClearDriverTableOnly() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
+    int choice = fl_choice("Удалить хеш-таблицу водителей?", "Отмена", "Удалить", nullptr);
+    if (choice == 1) {
+        integrator_.clearDriverTable();
+        refreshDataViews();
+        updateStatus("Хеш-таблица удалена.");
+    }
+}
+
+void IntegratorGUI::handleShowDriverTable() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
+    std::string text = integrator_.hashTableAsText();
+    if (text.empty()) {
+        text = "<пусто>";
+    }
+    showTextWindow("Хеш-таблица водителей", text);
+}
+
+void IntegratorGUI::handleAddDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана. Создайте таблицу перед добавлением водителей.");
+        return;
+    }
+    auto record = promptDriver();
+    if (!record) return;
+
+    if (integrator_.addDriver(*record)) {
+        refreshDataViews();
+        updateStatus("Водитель добавлен.");
+    }
+    else {
+        showError("Не удалось добавить водителя. Возможно, лицензия уже существует или данные некорректны.");
+    }
+}
+
+void IntegratorGUI::handleUpdateDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана. Создайте таблицу перед изменением водителей.");
+        return;
+    }
+    auto license = promptLicense("Номер водителя для изменения:");
+    if (!license) return;
+
+    auto stored = integrator_.findDriver(*license);
+    if (!stored.has_value()) {
+        showError("Водитель с таким номером не найден.");
+        return;
+    }
+
+    auto updated = promptDriver(&stored.value());
+    if (!updated) return;
+
+    if (updated->licenseNumber != stored->licenseNumber) {
+        showError("Нельзя изменять номер водительского удостоверения.");
+        return;
+    }
+
+    if (integrator_.updateDriver(*stored, *updated)) {
+        refreshDataViews();
+        updateStatus("Данные водителя обновлены.");
+    }
+    else {
+        showError("Не удалось обновить данные водителя.");
+    }
+}
+
+void IntegratorGUI::handleRemoveDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана. Создайте таблицу перед удалением водителей.");
+        return;
+    }
+    auto license = promptLicense("Номер водителя для удаления:");
+    if (!license) return;
+
+    int choice = fl_choice("Удалить водителя и связанные заказы?", "Отмена", "Удалить", nullptr);
+    if (choice != 1) {
+        return;
+    }
+
+    if (integrator_.removeDriver(*license)) {
+        refreshDataViews();
+        updateStatus("Водитель удалён.");
+    }
+    else {
+        showError("Не удалось удалить водителя.");
+    }
+}
+
+void IntegratorGUI::handleFindDriver() {
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
+    auto license = promptLicense("Номер водителя для поиска:");
+    if (!license) return;
+
+    auto stored = integrator_.findDriver(*license);
+    if (!stored.has_value()) {
+        showError("Водитель не найден.");
+        return;
+    }
+
+    std::ostringstream info;
+    info << "Лицензия: " << stored->licenseNumber << "\n"
+         << "ФИО: " << stored->fio << "\n"
+         << "Марка: " << stored->carBrand;
+    showInfo(info.str());
+}
+
+void IntegratorGUI::handleAddOrder() {
+    if (!integrator_.hasDriverTable() || !integrator_.hasOrderTree()) {
+        showError("Создайте хеш-таблицу и дерево заказов перед добавлением заказов.");
+        return;
+    }
+    auto record = promptOrder();
+    if (!record) return;
+
+    if (integrator_.addOrder(*record)) {
+        refreshDataViews();
+        updateStatus("Заказ добавлен.");
+    }
+    else {
+        showError("Не удалось добавить заказ. Проверьте существование водителя и корректность данных.");
+    }
+}
+
+void IntegratorGUI::handleUpdateOrder() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    if (!integrator_.hasDriverTable()) {
+        showError("Хеш-таблица ещё не создана.");
+        return;
+    }
+    auto license = promptLicense("Номер водителя для выбора заказа:");
+    if (!license) return;
+
+    DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    if (orders.empty()) {
+        showError("Для выбранного водителя нет заказов.");
+        return;
+    }
+
+    std::ostringstream list;
+    list << "Заказы водителя " << *license << ":\n\n";
+    for (std::size_t i = 0; i < orders.size(); ++i) {
+        const OrderRecord& order = orders[i];
+        list << (i + 1) << ") " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
+    }
+    showInfo(list.str());
+
+    auto index = promptIndexSelection(orders.size(), "Номер заказа для изменения:");
+    if (!index) return;
+
+    OrderRecord original = orders[*index];
+    auto updated = promptOrder(&original);
+    if (!updated) return;
+
+    if (integrator_.updateOrder(original, *updated)) {
+        refreshDataViews();
+        updateStatus("Заказ обновлён.");
+    }
+    else {
+        showError("Не удалось обновить заказ. Проверьте данные и существование водителя.");
+    }
+}
+
+void IntegratorGUI::handleRemoveOrder() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    auto license = promptLicense("Номер водителя для удаления заказа:");
+    if (!license) return;
+
+    DoublyLinkedList<OrderRecord> orders = integrator_.ordersForDriver(*license);
+    if (orders.empty()) {
+        showError("Для выбранного водителя нет заказов.");
+        return;
+    }
+
+    std::ostringstream list;
+    list << "Заказы водителя " << *license << ":\n\n";
+    for (std::size_t i = 0; i < orders.size(); ++i) {
+        const OrderRecord& order = orders[i];
+        list << (i + 1) << ") " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
+    }
+    showInfo(list.str());
+
+    auto index = promptIndexSelection(orders.size(), "Номер заказа для удаления:");
+    if (!index) return;
+
+    OrderRecord target = orders[*index];
+    int choice = fl_choice("Удалить выбранный заказ?", "Отмена", "Удалить", nullptr);
+    if (choice != 1) {
+        return;
+    }
+
+    if (integrator_.removeOrder(target)) {
+        refreshDataViews();
+        updateStatus("Заказ удалён.");
+    }
+    else {
+        showError("Не удалось удалить заказ.");
+    }
+}
+
+void IntegratorGUI::handleCheckOrder() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    auto record = promptOrder();
+    if (!record) return;
+
+    if (integrator_.hasOrder(*record)) {
+        showInfo("Такой заказ найден в системе.");
+    }
+    else {
+        showInfo("Такого заказа нет.");
+    }
+}
+
+void IntegratorGUI::handleCreateOrderTree() {
+    if (integrator_.createOrderTree()) {
+        refreshDataViews();
+        updateStatus("Дерево заказов создано.");
+    }
+    else {
+        showError("Не удалось создать дерево заказов.");
+    }
+}
+
+void IntegratorGUI::handleClearOrderTreeOnly() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    int choice = fl_choice("Удалить дерево заказов?", "Отмена", "Удалить", nullptr);
+    if (choice == 1) {
+        integrator_.clearOrderTree();
+        refreshDataViews();
+        updateStatus("Дерево заказов удалено.");
+    }
+}
+
+void IntegratorGUI::handleShowOrderTree() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    std::string text = integrator_.orderTreeAsText();
+    if (text.empty()) {
+        text = "<пусто>";
+    }
+    showTextWindow("Дерево заказов", text);
+}
+
+void IntegratorGUI::handleShowDateTree() {
+    if (!integrator_.hasOrderTree()) {
+        showError("Дерево заказов ещё не создано.");
+        return;
+    }
+    std::string text = integrator_.orderDateTreeAsText();
+    if (text.empty()) {
+        text = "<пусто>";
+    }
+    showTextWindow("Дерево заказов по датам", text);
+}
+
+void IntegratorGUI::handleGenerateReport() {
+    if (!integrator_.hasDriverTable() || !integrator_.hasOrderTree()) {
+        showError("Создайте обе структуры данных перед формированием отчёта.");
+        return;
+    }
+
+    auto license = promptLicense("Номер лицензии для отчёта (можно оставить пустым):", "", true);
+    if (!license) return;
+    auto carBrand = promptCarBrand("Марка автомобиля (можно оставить пустым):", "", true);
+    if (!carBrand) return;
+    auto address = promptAddress("Адрес заказа (можно оставить пустым):", "", true);
+    if (!address) return;
+    auto fromDate = promptValidated("Начальная дата (включительно, можно оставить пустым):",
+                                    "",
+                                    [](const std::string& value) {
+                                        Date parsed{};
+                                        return parseStrictDate(value, parsed);
+                                    },
+                                    "Дата должна быть в формате DD Mon YYYY (пример: 05 Nov 2025).",
+                                    true);
+    if (!fromDate) return;
+    auto toDate = promptValidated("Конечная дата (включительно, можно оставить пустым):",
+                                  "",
+                                  [](const std::string& value) {
+                                      Date parsed{};
+                                      return parseStrictDate(value, parsed);
+                                  },
+                                  "Дата должна быть в формате DD Mon YYYY (пример: 05 Nov 2025).",
+                                  true);
+    if (!toDate) return;
+
+    DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
+    std::string text = integrator_.formatReport(entries);
+    showTextWindow("Отчёт по водителю", text);
+}
+
+void IntegratorGUI::CallbackLoadDrivers(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleLoadDrivers();
+}
+
+void IntegratorGUI::CallbackLoadOrders(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleLoadOrders();
+}
+
+void IntegratorGUI::CallbackSaveDrivers(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleSaveDrivers();
+}
+
+void IntegratorGUI::CallbackSaveOrders(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleSaveOrders();
+}
+
+void IntegratorGUI::CallbackClear(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleClear();
+}
+
+void IntegratorGUI::CallbackCreateDriverTable(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleCreateDriverTable();
+}
+
+void IntegratorGUI::CallbackClearDriverTableOnly(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleClearDriverTableOnly();
+}
+
+void IntegratorGUI::CallbackShowDriverTable(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowDriverTable();
+}
+
+void IntegratorGUI::CallbackAddDriver(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleAddDriver();
+}
+
+void IntegratorGUI::CallbackUpdateDriver(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleUpdateDriver();
+}
+
+void IntegratorGUI::CallbackRemoveDriver(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleRemoveDriver();
+}
+
+void IntegratorGUI::CallbackFindDriver(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleFindDriver();
+}
+
+void IntegratorGUI::CallbackAddOrder(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleAddOrder();
+}
+
+void IntegratorGUI::CallbackUpdateOrder(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleUpdateOrder();
+}
+
+void IntegratorGUI::CallbackRemoveOrder(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleRemoveOrder();
+}
+
+void IntegratorGUI::CallbackCheckOrder(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleCheckOrder();
+}
+
+void IntegratorGUI::CallbackCreateOrderTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleCreateOrderTree();
+}
+
+void IntegratorGUI::CallbackClearOrderTreeOnly(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleClearOrderTreeOnly();
+}
+
+void IntegratorGUI::CallbackShowOrderTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowOrderTree();
+}
+
+void IntegratorGUI::CallbackShowDateTree(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleShowDateTree();
+}
+
+void IntegratorGUI::CallbackGenerateReport(Fl_Widget*, void* data) {
+    static_cast<IntegratorGUI*>(data)->handleGenerateReport();
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
+    (void)argc;
+    (void)argv;
+    Fl::scheme("plastic");
+    IntegratorGUI gui;
+    gui.show();
+    return Fl::run();
+}
+

@@ -1,162 +1,127 @@
-#include "hashtable.hpp"
+﻿#include "hashtable.hpp"
+
+#include <cstdint>
 #include <functional>
 #include <iostream>
-#include <fstream>
-#include <cstdint>
+#include <sstream>
+#include <utility>
 
-// ---------------- HashTable::Cell ----------------
+Cell::Cell()
+    : occupied(false), key(), index(0) {}
 
-HashTable::Cell::Cell()
-    : occupied(false),
-    data{ "", 0, "", 0LL, -1 }
-{}
-
-// ---------------- HashTable ----------------
-
-HashTable::HashTable(size_t initialSize, double maxLoad)
+HashTable::HashTable(std::size_t initialSize, double maxLoad)
     : m_size(initialSize),
-    m_count(0),
-    m_initialSize(initialSize),
-    m_maxLoadFactor(maxLoad),
-    m_minLoadFactor(0.25),
-    table(new Cell[initialSize])
-{}
+      m_count(0),
+      m_initialSize(initialSize),
+      m_maxLoadFactor(maxLoad),
+      m_minLoadFactor(0.25),
+      table(new Cell[initialSize]) {}
+
+HashTable::HashTable(HashTable&& other) noexcept
+    : m_size(other.m_size),
+      m_count(other.m_count),
+      m_initialSize(other.m_initialSize),
+      m_maxLoadFactor(other.m_maxLoadFactor),
+      m_minLoadFactor(other.m_minLoadFactor),
+      table(other.table) {
+    other.table = nullptr;
+    other.m_size = other.m_count = other.m_initialSize = 0;
+    other.m_maxLoadFactor = other.m_minLoadFactor = 0.0;
+}
+
+HashTable& HashTable::operator=(HashTable&& other) noexcept {
+    if (this != &other) {
+        delete[] table;
+        m_size = other.m_size;
+        m_count = other.m_count;
+        m_initialSize = other.m_initialSize;
+        m_maxLoadFactor = other.m_maxLoadFactor;
+        m_minLoadFactor = other.m_minLoadFactor;
+        table = other.table;
+        other.table = nullptr;
+        other.m_size = other.m_count = other.m_initialSize = 0;
+        other.m_maxLoadFactor = other.m_minLoadFactor = 0.0;
+    }
+    return *this;
+}
 
 HashTable::~HashTable() {
     delete[] table;
 }
 
-std::string HashTable::makeKey(const std::string& fio, int applicationNumber) const {
-    return fio + "#" + std::to_string(applicationNumber);
-}
+bool HashTable::insert(const std::string& key, std::size_t listIndex) {
+    std::size_t base = hashPrimary(key);
 
-// -- primary hash with debug logging --
-size_t HashTable::hashPrimary(const std::string& key) const {
-    static constexpr uint64_t MUL = 11400714819323198485ULL;
-    static std::hash<std::string> hasher;
-    uint64_t k = hasher(key);
-    uint64_t h = k * MUL;
-    size_t idx = h % m_size;
-    std::cout << "[Hash] primary(\"" << key << "\") = " << idx << "\n";
-    return idx;
-}
-
-// -- secondary (linear) probing with debug logging --
-size_t HashTable::hashSecondary(size_t base, const std::string& key, size_t iteration) const {
-    size_t idx = (base + iteration) % m_size;
-    if (iteration > 0) {
-        std::cout << "[Hash] secondary(\"" << key
-            << "\", iter=" << iteration
-            << ") = " << idx << "\n";
-    }
-    return idx;
-}
-
-void HashTable::rehash(size_t newSize) {
-    Cell* oldTable = table;
-    size_t oldSize = m_size;
-
-    table = new Cell[newSize];
-    m_size = newSize;
-    m_count = 0;
-
-    for (size_t i = 0; i < oldSize; ++i) {
-        if (oldTable[i].occupied) {
-            insert(oldTable[i].data);
-        }
-    }
-    delete[] oldTable;
-}
-
-bool HashTable::insert(const Record& rec) {
-    std::string key = makeKey(rec.fio, rec.applicationNumber);
-    size_t      base = hashPrimary(key);
-
-    for (size_t i = 0; i < m_size; ++i) {
-        size_t idx = hashSecondary(base, key, i);
+    for (std::size_t i = 0; i < m_size; ++i) {
+        std::size_t idx = hashSecondary(base, key, i);
         if (!table[idx].occupied) {
-            table[idx].data = rec;
             table[idx].occupied = true;
+            table[idx].key = key;
+            table[idx].index = listIndex;
             ++m_count;
-            if ((double)m_count / m_size > m_maxLoadFactor) {
+            if (static_cast<double>(m_count) / m_size > m_maxLoadFactor) {
                 rehash(m_size * 2);
             }
             return true;
         }
-        if (table[idx].data.fio == rec.fio &&
-            table[idx].data.applicationNumber == rec.applicationNumber)
-        {
+        if (table[idx].key == key) {
             return false;
         }
     }
+
     rehash(m_size * 2);
-    return insert(rec);
+    return insert(key, listIndex);
 }
 
-bool HashTable::search(const std::string& fio, int applicationNumber,
-    size_t& out_index, int& steps) const {
-    std::string key = makeKey(fio, applicationNumber);
-    size_t      base = hashPrimary(key);
+bool HashTable::remove(const std::string& key, std::size_t& removedIndex) {
+    int steps = 0;
+    std::size_t slot = find_slot(key, &steps);
+    if (slot == m_size) return false;
 
-    for (size_t i = 0; i < m_size; ++i) {
-        steps = int(i + 1);
-        size_t idx = hashSecondary(base, key, i);
-        if (!table[idx].occupied) return false;
-        if (table[idx].data.fio == fio &&
-            table[idx].data.applicationNumber == applicationNumber)
-        {
-            out_index = idx;
-            return true;
-        }
-    }
-    return false;
-}
-
-bool HashTable::remove(const Record& rec) {
-    size_t idx; int steps = 0;
-    if (!search(rec.fio, rec.applicationNumber, idx, steps))
-        return false;
-
-    const Record& found = table[idx].data;
-    if (found.street != rec.street ||
-        found.phoneNumber != rec.phoneNumber)
-    {
-        return false;
-    }
-
-    table[idx].occupied = false;
+    removedIndex = table[slot].index;
+    table[slot].occupied = false;
+    table[slot].key.clear();
+    table[slot].index = 0;
     --m_count;
-    std::string key = makeKey(rec.fio, rec.applicationNumber);
-    size_t      base = hashPrimary(key);
-    size_t      prev = idx;
 
-    for (size_t i = steps; i < m_size; ++i) {
-        size_t curr = hashSecondary(base, key, i);
-        if (!table[curr].occupied) break;
-
-        const Record& r2 = table[curr].data;
-        size_t home = hashPrimary(makeKey(r2.fio, r2.applicationNumber));
-
-        bool inRange;
-        if (home <= curr)
-            inRange = (home <= prev && prev < curr);
-        else
-            inRange = (home <= prev || prev < curr);
-
-        if (!inRange) {
-            table[prev].data = table[curr].data;
-            table[prev].occupied = true;
-            table[curr].occupied = false;
-            prev = curr;
-        }
+    std::size_t curr = (slot + 1) % m_size;
+    while (table[curr].occupied) {
+        std::string keyToReinsert = std::move(table[curr].key);
+        std::size_t indexToReinsert = table[curr].index;
+        table[curr].occupied = false;
+        table[curr].index = 0;
+        --m_count;
+        insert(keyToReinsert, indexToReinsert);
+        curr = (curr + 1) % m_size;
     }
 
     if (m_size > m_initialSize &&
-        (double)m_count / m_size < m_minLoadFactor)
-    {
+        static_cast<double>(m_count) / m_size < m_minLoadFactor) {
         rehash(m_size / 2);
     }
     return true;
+}
+
+bool HashTable::search(const std::string& key, std::size_t& listIndex, int& steps) const {
+    int localSteps = 0;
+    std::size_t slot = find_slot(key, &localSteps);
+    steps = localSteps;
+    if (slot == m_size) return false;
+    listIndex = table[slot].index;
+    return true;
+}
+
+bool HashTable::update_index(const std::string& key, std::size_t newIndex) {
+    int steps = 0;
+    std::size_t slot = find_slot(key, &steps);
+    if (slot == m_size) return false;
+    table[slot].index = newIndex;
+    return true;
+}
+
+bool HashTable::contains(const std::string& key) const {
+    int steps = 0;
+    return find_slot(key, &steps) != m_size;
 }
 
 void HashTable::clear() {
@@ -165,31 +130,84 @@ void HashTable::clear() {
     m_count = 0;
 }
 
-void HashTable::print(std::ostream& out) const {
-    out << "Idx | Status   | Record (name;app;street;phone;line)\n";
-    for (size_t i = 0; i < m_size; ++i) {
-        out << i << "   | "
-            << (table[i].occupied ? "OCCUPIED" : "FREE    ");
-        if (table[i].occupied) {
-            const Record& r = table[i].data;
-            out << " | "
-                << r.fio << ";"
-                << r.applicationNumber << ";"
-                << r.street << ";"
-                << r.phoneNumber << ";"
-                << r.originalLine;
+std::string HashTable::toString() const {
+    std::ostringstream out;
+    out << "HashTable dump\n";
+    out << "Capacity: " << m_size << "\n";
+    out << "Elements: " << m_count << "\n";
+    out << "------------------------------\n";
+    bool printedAny = false;
+    for (std::size_t i = 0; i < m_size; ++i) {
+        if (!table[i].occupied) {
+            continue;
         }
-        out << "\n";
+        printedAny = true;
+        out << "[" << i << "] occupied | key=\"" << table[i].key
+            << "\" | index=" << table[i].index << "\n";
     }
+    if (!printedAny) {
+        out << "(no entries)\n";
+    }
+    return out.str();
 }
 
-void HashTable::saveToFile(const std::string& filename) const {
-    std::ofstream ofs(filename);
-    print(ofs);
+DoublyLinkedList<HashTable::Entry> HashTable::entries() const {
+    DoublyLinkedList<Entry> result;
+    for (std::size_t i = 0; i < m_size; ++i) {
+        if (!table[i].occupied) {
+            continue;
+        }
+        result.push_back(Entry{i, table[i].key, table[i].index});
+    }
+    return result;
 }
 
-int HashTable::getOriginalLine(size_t index) const {
-    if (index < m_size && table[index].occupied)
-        return table[index].data.originalLine;
-    return -1;
+Cell HashTable::cellAt(std::size_t slot) const {
+    if (slot >= m_size) {
+        return Cell{};
+    }
+    return table[slot];
+}
+
+std::size_t HashTable::hashPrimary(const std::string& key) const {
+    static constexpr std::uint64_t MUL = 11400714819323198485ULL;
+    std::uint64_t k = 0;
+    for (unsigned char c : key) { k = (k*31) + c; }
+    std::uint64_t h = k * MUL;
+    std::size_t idx = static_cast<std::size_t>(h % m_size);
+    return idx;
+}
+
+
+std::size_t HashTable::hashSecondary(std::size_t base, const std::string& key, std::size_t iteration) const {
+    std::size_t idx = (base + iteration) % m_size;
+    return idx;
+}
+
+std::size_t HashTable::find_slot(const std::string& key, int* steps) const {
+    std::size_t base = hashPrimary(key);
+
+    for (std::size_t i = 0; i < m_size; ++i) {
+        if (steps) *steps = static_cast<int>(i + 1);
+        std::size_t idx = hashSecondary(base, key, i);
+        if (!table[idx].occupied) return m_size;
+        if (table[idx].key == key) return idx;
+    }
+    return m_size;
+}
+
+void HashTable::rehash(std::size_t newSize) {
+    Cell* oldTable = table;
+    std::size_t oldSize = m_size;
+
+    table = new Cell[newSize];
+    m_size = newSize;
+    m_count = 0;
+
+    for (std::size_t i = 0; i < oldSize; ++i) {
+        if (oldTable[i].occupied) {
+            insert(oldTable[i].key, oldTable[i].index);
+        }
+    }
+    delete[] oldTable;
 }
