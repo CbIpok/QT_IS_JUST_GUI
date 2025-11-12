@@ -4,7 +4,7 @@
 #include <regex>
 #include <string>
 #include <utility>
-#include <vector>
+#include "DoublyLinkedList.hpp" 
 
 #include "date.hpp"
 #include "string_utils.hpp"
@@ -54,8 +54,26 @@ bool ParseMonth(const std::string& token, Month& month) {
         }
     }
     return false;
-}
 
+
+}
+inline bool SplitBySpacesStrict(const std::string& s, DoublyLinkedList<std::string>& out) {
+    if (s.empty()) return false;
+    std::string cur;
+    for (char ch : s) {
+        if (ch == ' ') {
+            if (cur.empty()) return false; // ведущий или двойной пробел
+            out.push_back(cur);
+            cur.clear();
+        }
+        else {
+            cur.push_back(ch);
+        }
+    }
+    if (cur.empty()) return false; // замыкающий пробел
+    out.push_back(cur);
+    return true;
+}
 }  // namespace
 
 namespace validation {
@@ -70,27 +88,29 @@ bool isValidLicense(const std::string& value) {
 }
 
 bool isValidFio(const std::string& value) {
-    std::vector<std::string> parts;
-    if (!string_utils::splitBySpaces(value, parts) || parts.size() != 3) {
+    DoublyLinkedList<std::string> parts;
+    if (!SplitBySpacesStrict(value, parts) || parts.size() != 3) {
         return false;
     }
 
-    for (const std::string& part : parts) {
+    bool ok = true;
+    parts.for_each_while([&](const std::string& part, size_t) {
         std::u32string codePoints;
         if (!string_utils::decodeUtf8(part, codePoints) || codePoints.empty()) {
-            return false;
+            ok = false; return false;
         }
         if (!IsRussianUpper(codePoints.front())) {
-            return false;
+            ok = false; return false;
         }
         for (std::size_t i = 1; i < codePoints.size(); ++i) {
             if (!IsRussianLower(codePoints[i])) {
-                return false;
+                ok = false; return false;
             }
         }
-    }
+        return true;
+        });
 
-    return true;
+    return ok;
 }
 
 bool isValidCarBrand(const std::string& value) {
@@ -129,76 +149,61 @@ bool isValidCarBrand(const std::string& value) {
 }
 
 bool isValidAddress(const std::string& value) {
-    std::vector<std::string> tokens;
-    if (!string_utils::splitBySpaces(value, tokens) || tokens.empty()) {
+    DoublyLinkedList<std::string> tokens;
+    if (!SplitBySpacesStrict(value, tokens) || tokens.empty()) {
         return false;
     }
 
     bool first = true;
-    for (const std::string& token : tokens) {
+    bool ok = true;
+
+    tokens.for_each_while([&](const std::string& token, size_t) {
         std::string core = token;
         while (!core.empty() && (core.back() == '.' || core.back() == ',')) {
             core.pop_back();
         }
-        if (core.empty()) {
-            return false;
-        }
+        if (core.empty()) { ok = false; return false; }
 
         std::u32string codePoints;
         if (!string_utils::decodeUtf8(core, codePoints) || codePoints.empty()) {
-            return false;
+            ok = false; return false;
         }
 
         bool hasLetters = false;
         bool hasDigits = false;
         for (char32_t cp : codePoints) {
-            if (IsDigit(cp)) {
-                hasDigits = true;
-            }
-            else if (IsRussianLetter(cp)) {
-                hasLetters = true;
-            }
-            else {
-                return false;
-            }
+            if (IsDigit(cp))       hasDigits = true;
+            else if (IsRussianLetter(cp)) hasLetters = true;
+            else { ok = false; return false; }
         }
 
         if (hasLetters && hasDigits) {
             bool seenLetter = false;
             for (char32_t cp : codePoints) {
                 if (IsDigit(cp)) {
-                    if (seenLetter) {
-                        return false;
-                    }
+                    if (seenLetter) { ok = false; return false; }
                 }
                 else {
                     seenLetter = true;
-                    if (!IsRussianUpper(cp)) {
-                        return false;
-                    }
+                    if (!IsRussianUpper(cp)) { ok = false; return false; }
                 }
             }
         }
         else if (hasLetters) {
-            if (!IsRussianUpper(codePoints.front())) {
-                return false;
-            }
+            if (!IsRussianUpper(codePoints.front())) { ok = false; return false; }
             for (std::size_t i = 1; i < codePoints.size(); ++i) {
-                if (!IsRussianLower(codePoints[i])) {
-                    return false;
-                }
+                if (!IsRussianLower(codePoints[i])) { ok = false; return false; }
             }
         }
         else {
-            if (first) {
-                return false;
-            }
+            if (first) { ok = false; return false; }
         }
 
         first = false;
-    }
+        return true;
+        });
 
-    return true;
+    return ok;
 }
 
 bool isValidCost(const std::string& value) {
