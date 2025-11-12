@@ -67,14 +67,14 @@ TEST(DataIntegratorUseCasesTest, UseCase01_IntegratorStartsEmpty) {
     EXPECT_EQ(integrator.orderCount(), 0u);
     EXPECT_FALSE(integrator.hasDriverTable());
     EXPECT_FALSE(integrator.hasOrderTree());
-    EXPECT_FALSE(integrator.hasDriver("ANY-DRIVER"));
-    EXPECT_TRUE(integrator.ordersForDriver("ANY-DRIVER").empty());
+    EXPECT_FALSE(integrator.hasDriver("ANYDRIVER1"));
+    EXPECT_TRUE(integrator.ordersForDriver("ANYDRIVER1").empty());
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase02_AddNovikovaDriver) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
-    DriverRecord driver{"TK-25-111111-2023", "Novikova Daria", "BMW"};
+    DriverRecord driver{"TK251111112023", "Новикова Дарья Сергеевна", "Audi"};
 
     EXPECT_TRUE(integrator.addDriver(driver));
     EXPECT_EQ(integrator.driverCount(), 1u);
@@ -92,43 +92,43 @@ TEST(DataIntegratorUseCasesTest, UseCase02_AddNovikovaDriver) {
 TEST(DataIntegratorUseCasesTest, UseCase03_DuplicateDriverRejected) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
-    DriverRecord driver{"TK-25-111111-2023", "Novikova Daria", "BMW"};
+    DriverRecord driver{"TK251111112023", "Новикова Дарья Сергеевна", "Audi"};
     ASSERT_TRUE(integrator.addDriver(driver));
 
     DriverRecord duplicate = driver;
-    duplicate.fio = "Changed Name";
-    duplicate.carBrand = "Audi";
+    duplicate.fio = "Новикова Дарья Павловна";
+    duplicate.carBrand = "Skoda";
     EXPECT_FALSE(integrator.addDriver(duplicate));
     EXPECT_EQ(integrator.driverCount(), 1u);
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase04_LoadBasicAndUpdateDriver) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
-    auto record = integrator.findDriver("VB-100");
+    auto record = integrator.findDriver("VB100");
     ASSERT_TRUE(record.has_value());
 
     DriverRecord original = *record;
     DriverRecord updated = original;
-    updated.carBrand = "UpdatedBrand";
+    updated.carBrand = "Nissan";
 
     EXPECT_TRUE(integrator.updateDriver(original, updated));
 
-    auto stored = integrator.findDriver("VB-100");
+    auto stored = integrator.findDriver("VB100");
     ASSERT_TRUE(stored.has_value());
-    EXPECT_EQ(stored->carBrand, "UpdatedBrand");
+    EXPECT_EQ(stored->carBrand, "Nissan");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase05_DeleteDriverRemovesOrders) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driver{"TK-25-444444-2025", "Melnikov Igor", "Audi"};
-    OrderRecord orderA = MakeOrder(driver.licenseNumber, "Ul. Mira", "400 r.", "10 feb 2025");
-    OrderRecord orderB = MakeOrder(driver.licenseNumber, "Ul. Lenina", "600 r.", "12 feb 2025");
+    DriverRecord driver{"TK254444442025", "Мельников Игорь Петрович", "Skoda"};
+    OrderRecord orderA = MakeOrder(driver.licenseNumber, "Улица Мира 12", "400,00", "10 Feb 2025");
+    OrderRecord orderB = MakeOrder(driver.licenseNumber, "Улица Ленина 18", "600,00", "12 Feb 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(orderA));
@@ -148,8 +148,8 @@ TEST(DataIntegratorUseCasesTest, UseCase06_AddOrderForExistingDriver) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driver{"TK-25-111111-2023", "Novikova Daria", "BMW"};
-    OrderRecord order = MakeOrder(driver.licenseNumber, "Ul. Lesnaya", "300 r.", "02 jan 2025");
+    DriverRecord driver{"TK251111112023", "Новикова Дарья Сергеевна", "Audi"};
+    OrderRecord order = MakeOrder(driver.licenseNumber, "Улица Лесная 5", "300,00", "02 Jan 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     EXPECT_TRUE(integrator.addOrder(order));
@@ -164,7 +164,7 @@ TEST(DataIntegratorUseCasesTest, UseCase07_AddOrderFailsWithoutDriver) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    OrderRecord order = MakeOrder("TK-25-333333-2025", "Ul. Mira", "500 r.", "05 feb 2025");
+    OrderRecord order = MakeOrder("TK253333332025", "Улица Мира 10", "500,00", "05 Feb 2025");
 
     EXPECT_FALSE(integrator.addOrder(order));
     EXPECT_EQ(integrator.orderCount(), 0u);
@@ -174,9 +174,9 @@ TEST(DataIntegratorUseCasesTest, UseCase08_EditOrderFields) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driver{"TK-25-666666-2025", "Alexeeva Olga", "Kia"};
-    OrderRecord original = MakeOrder(driver.licenseNumber, "Old Street", "150 r.", "01 mar 2025");
-    OrderRecord updated = MakeOrder(driver.licenseNumber, "New Street", "155 r.", "02 mar 2025");
+    DriverRecord driver{"TK256666662025", "Алексеева Ольга Викторовна", "Kia"};
+    OrderRecord original = MakeOrder(driver.licenseNumber, "Улица Старая 7", "150,00", "01 Mar 2025");
+    OrderRecord updated = MakeOrder(driver.licenseNumber, "Улица Новая 9", "155,00", "02 Mar 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(original));
@@ -191,15 +191,15 @@ TEST(DataIntegratorUseCasesTest, UseCase09_ReassignOrderBetweenDrivers) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(32));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driverA{"DL-A", "Driver A", "Brand A"};
-    DriverRecord driverB{"DL-B", "Driver B", "Brand B"};
-    OrderRecord original = MakeOrder(driverA.licenseNumber, "Main Square", "100", "2025-06-01");
+    DriverRecord driverA{"DLA001", "Водитель А Аркадьевич", "Lada"};
+    DriverRecord driverB{"DLB002", "Водитель Б Борисович", "Renault"};
+    OrderRecord original = MakeOrder(driverA.licenseNumber, "Площадь Центральная 5", "100,00", "01 Jun 2025");
 
     ASSERT_TRUE(integrator.addDriver(driverA));
     ASSERT_TRUE(integrator.addDriver(driverB));
     ASSERT_TRUE(integrator.addOrder(original));
 
-    OrderRecord moved = MakeOrder(driverB.licenseNumber, "Main Square", "100", "2025-06-01");
+    OrderRecord moved = MakeOrder(driverB.licenseNumber, "Площадь Центральная 5", "100,00", "01 Jun 2025");
     EXPECT_TRUE(integrator.updateOrder(original, moved));
     EXPECT_EQ(integrator.orderCount(), 1u);
 
@@ -213,10 +213,10 @@ TEST(DataIntegratorUseCasesTest, UseCase10_DeleteMiddleOrder) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driver{"TK-25-555555-2025", "Sokolov Petr", "VW"};
-    OrderRecord order1 = MakeOrder(driver.licenseNumber, "Street 1", "100 r.", "01 jan 2025");
-    OrderRecord order2 = MakeOrder(driver.licenseNumber, "Street 2", "200 r.", "02 jan 2025");
-    OrderRecord order3 = MakeOrder(driver.licenseNumber, "Street 3", "300 r.", "03 jan 2025");
+    DriverRecord driver{"TK255555552025", "Соколов Пётр Андреевич", "Renault"};
+    OrderRecord order1 = MakeOrder(driver.licenseNumber, "Улица Первая 1", "100,00", "01 Jan 2025");
+    OrderRecord order2 = MakeOrder(driver.licenseNumber, "Улица Вторая 2", "200,00", "02 Jan 2025");
+    OrderRecord order3 = MakeOrder(driver.licenseNumber, "Улица Третья 3", "300,00", "03 Jan 2025");
 
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(order1));
@@ -232,15 +232,15 @@ TEST(DataIntegratorUseCasesTest, UseCase10_DeleteMiddleOrder) {
 
 TEST(DataIntegratorUseCasesTest, UseCase11_LoadMultipleAndInspectVM200) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.txt").string(), kConfigTableSize));
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
-    auto orders = integrator.ordersForDriver("VM-200");
+    auto orders = integrator.ordersForDriver("VM200");
     ASSERT_EQ(orders.size(), 3u);
-    EXPECT_EQ(orders[0].address, "Multiple Hub 1A");
-    EXPECT_EQ(orders[1].address, "Multiple Hub 1B");
-    EXPECT_EQ(orders[2].address, "Multiple Hub 1C");
+    EXPECT_EQ(orders[0].address, "Площадь Центральная 1А");
+    EXPECT_EQ(orders[1].address, "Площадь Центральная 1Б");
+    EXPECT_EQ(orders[2].address, "Площадь Центральная 1В");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase12_CreateAndClearStructures) {
@@ -251,8 +251,8 @@ TEST(DataIntegratorUseCasesTest, UseCase12_CreateAndClearStructures) {
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
 
-    DriverRecord driver{"REP-100", "Reporter User", "Skoda"};
-    OrderRecord order = MakeOrder(driver.licenseNumber, "Lenina 10", "700", "2025-04-01");
+    DriverRecord driver{"REP100", "Репортёр Антон Львович", "Skoda"};
+    OrderRecord order = MakeOrder(driver.licenseNumber, "Улица Ленина 10", "700,00", "01 Apr 2025");
     ASSERT_TRUE(integrator.addDriver(driver));
     ASSERT_TRUE(integrator.addOrder(order));
 
@@ -274,12 +274,12 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
 
-    DriverRecord driver{"REP-200", "Ivanov Petr", "Toyota"};
+    DriverRecord driver{"REP200", "Иванов Пётр Сергеевич", "Toyota"};
     ASSERT_TRUE(integrator.addDriver(driver));
 
-    OrderRecord matchOrder = MakeOrder(driver.licenseNumber, "Central Square", "800", "2025-02-15");
-    OrderRecord laterOrder = MakeOrder(driver.licenseNumber, "Central Square", "850", "2025-03-20");
-    OrderRecord otherAddress = MakeOrder(driver.licenseNumber, "Side Street", "400", "2025-02-10");
+    OrderRecord matchOrder = MakeOrder(driver.licenseNumber, "Площадь Центральная 10", "800,00", "15 Feb 2025");
+    OrderRecord laterOrder = MakeOrder(driver.licenseNumber, "Площадь Центральная 10", "850,00", "20 Mar 2025");
+    OrderRecord otherAddress = MakeOrder(driver.licenseNumber, "Боковая Улица 3", "400,00", "10 Feb 2025");
     ASSERT_TRUE(integrator.addOrder(matchOrder));
     ASSERT_TRUE(integrator.addOrder(laterOrder));
     ASSERT_TRUE(integrator.addOrder(otherAddress));
@@ -315,119 +315,119 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
 
 TEST(DataIntegratorUseCasesTest, UseCase12_LoadMultipleDriversWithoutOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.txt").string(), kConfigTableSize));
 
-    EXPECT_TRUE(integrator.ordersForDriver("VM-247").empty());
-    EXPECT_TRUE(integrator.ordersForDriver("VM-248").empty());
-    EXPECT_TRUE(integrator.ordersForDriver("VM-249").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VM247").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VM248").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VM249").empty());
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase13_FilterByLicenseNumber) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    auto driver = integrator.findDriver("VB-100");
+    auto driver = integrator.findDriver("VB100");
     ASSERT_TRUE(driver.has_value());
-    EXPECT_EQ(driver->fio, "Basic Driver 1");
-    EXPECT_EQ(driver->carBrand, "Brand 1");
+    EXPECT_EQ(driver->fio, "Смирнова Алина Павловна");
+    EXPECT_EQ(driver->carBrand, "Лада");
 
-    auto orders = integrator.ordersForDriver("VB-100");
+    auto orders = integrator.ordersForDriver("VB100");
     ASSERT_EQ(orders.size(), 1u);
-    EXPECT_EQ(orders.front().address, "Basic Street 1");
-    EXPECT_EQ(orders.front().cost, "1000");
-    EXPECT_EQ(orders.front().date.storageString(), "2024-12-01");
+    EXPECT_EQ(orders.front().address, "Улица Сиреневая 1");
+    EXPECT_EQ(orders.front().cost, "1000,00");
+    EXPECT_EQ(orders.front().date.displayString(), "01 Dec 2024");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase14_FilterByFio) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    auto driver = integrator.findDriver("VB-149");
+    auto driver = integrator.findDriver("VB149");
     ASSERT_TRUE(driver.has_value());
-    EXPECT_EQ(driver->fio, "Basic Driver 50");
+    EXPECT_EQ(driver->fio, "Полякова Инга Сергеевна");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase15_FilterByCarBrand) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    auto driverA = integrator.findDriver("VB-104");
-    auto driverB = integrator.findDriver("VB-149");
+    auto driverA = integrator.findDriver("VB104");
+    auto driverB = integrator.findDriver("VB149");
     ASSERT_TRUE(driverA.has_value());
     ASSERT_TRUE(driverB.has_value());
-    EXPECT_EQ(driverA->carBrand, "Brand 5");
-    EXPECT_EQ(driverB->carBrand, "Brand 5");
+    EXPECT_EQ(driverA->carBrand, "Toyota");
+    EXPECT_EQ(driverB->carBrand, "Toyota");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase16_VerifyDriverPresenceAfterLoad) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    EXPECT_TRUE(integrator.hasDriver("VB-100"));
+    EXPECT_TRUE(integrator.hasDriver("VB100"));
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase17_FilterOrdersByDriverLicense) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    auto orders = integrator.ordersForDriver("VB-149");
+    auto orders = integrator.ordersForDriver("VB149");
     ASSERT_EQ(orders.size(), 1u);
-    EXPECT_EQ(orders.front().address, "Basic Street 50");
-    EXPECT_EQ(orders.front().cost, "1490");
-    EXPECT_EQ(orders.front().date.storageString(), "2025-01-19");
+    EXPECT_EQ(orders.front().address, "Улица Сиреневая 50");
+    EXPECT_EQ(orders.front().cost, "1490,00");
+    EXPECT_EQ(orders.front().date.displayString(), "19 Jan 2025");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase18_FilterOrdersByAddress) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.txt").string(), kConfigTableSize));
 
-    OrderRecord order = MakeOrder("VM-201", "Multiple Hub 2A", "2328", "2025-01-04");
+    OrderRecord order = MakeOrder("VM201", "Площадь Центральная 2А", "2328,00", "04 Jan 2025");
     EXPECT_TRUE(integrator.hasOrder(order));
 
-    OrderRecord paired = MakeOrder("VM-201", "Multiple Hub 2B", "2335", "2025-01-05");
+    OrderRecord paired = MakeOrder("VM201", "Площадь Центральная 2Б", "2335,00", "05 Jan 2025");
     EXPECT_TRUE(integrator.hasOrder(paired));
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase19_FilterOrdersByCost) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    OrderRecord order = MakeOrder("VB-149", "Basic Street 50", "1490", "2025-01-19");
+    OrderRecord order = MakeOrder("VB149", "Улица Сиреневая 50", "1490,00", "19 Jan 2025");
     EXPECT_TRUE(integrator.hasOrder(order));
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase20_FilterOrdersByDate) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    OrderRecord order = MakeOrder("VB-100", "Basic Street 1", "1000", "2024-12-01");
+    OrderRecord order = MakeOrder("VB100", "Улица Сиреневая 1", "1000,00", "01 Dec 2024");
     EXPECT_TRUE(integrator.hasOrder(order));
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase21_UpdateOrderAndAddNewForDriver) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    auto driver = integrator.findDriver("VB-100");
+    auto driver = integrator.findDriver("VB100");
     ASSERT_TRUE(driver.has_value());
 
     DriverRecord originalDriver = *driver;
     DriverRecord updatedDriver = originalDriver;
-    updatedDriver.carBrand = "UpdatedBrand";
+    updatedDriver.carBrand = "Nissan";
     EXPECT_TRUE(integrator.updateDriver(originalDriver, updatedDriver));
 
-    OrderRecord originalOrder = MakeOrder("VB-100", "Basic Street 1", "1000", "2024-12-01");
-    OrderRecord modified = MakeOrder("VB-100", "Prospekt Mira 10", "2700", "2024-12-01");
+    OrderRecord originalOrder = MakeOrder("VB100", "Улица Сиреневая 1", "1000,00", "01 Dec 2024");
+    OrderRecord modified = MakeOrder("VB100", "Проспект Мира 10", "2700,00", "01 Dec 2024");
     EXPECT_TRUE(integrator.updateOrder(originalOrder, modified));
 
-    OrderRecord additional = MakeOrder("VB-100", "Tverskaya 5", "3100", "2025-01-15");
+    OrderRecord additional = MakeOrder("VB100", "Тверская 5", "3100,00", "15 Jan 2025");
     EXPECT_TRUE(integrator.addOrder(additional));
 
-    auto stored = integrator.findDriver("VB-100");
+    auto stored = integrator.findDriver("VB100");
     ASSERT_TRUE(stored.has_value());
-    EXPECT_EQ(stored->carBrand, "UpdatedBrand");
+    EXPECT_EQ(stored->carBrand, "Nissan");
 
-    auto orders = integrator.ordersForDriver("VB-100");
+    auto orders = integrator.ordersForDriver("VB100");
     ASSERT_EQ(orders.size(), 2u);
     EXPECT_EQ(integrator.orderCount(), 51u);
     EXPECT_TRUE(Contains(orders, modified));
@@ -438,10 +438,10 @@ TEST(DataIntegratorUseCasesTest, UseCase22_SaveTwoDriversAndOrders) {
     DataIntegrator integrator;
     ASSERT_TRUE(integrator.createDriverTable(16));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driverA{"DL-001", "Alpha Tester", "Tesla"};
-    DriverRecord driverB{"DL-002", "Beta Tester", "BMW"};
-    OrderRecord orderA = MakeOrder(driverA.licenseNumber, "Street 7", "100", "2024-12-31");
-    OrderRecord orderB = MakeOrder(driverB.licenseNumber, "Street 8", "200", "2025-01-01");
+    DriverRecord driverA{"DL001", "Испытатель Альфа Сергеевич", "Tesla"};
+    DriverRecord driverB{"DL002", "Испытатель Бета Андреевич", "Audi"};
+    OrderRecord orderA = MakeOrder(driverA.licenseNumber, "Улица Опытная 7", "100,00", "31 Dec 2024");
+    OrderRecord orderB = MakeOrder(driverB.licenseNumber, "Улица Опытная 8", "200,00", "01 Jan 2025");
 
     ASSERT_TRUE(integrator.addDriver(driverA));
     ASSERT_TRUE(integrator.addDriver(driverB));
@@ -461,11 +461,11 @@ TEST(DataIntegratorUseCasesTest, UseCase22_SaveTwoDriversAndOrders) {
 
     std::string expected =
         "drivers 2\n"
-        "DL-001|Alpha Tester|Tesla\n"
-        "DL-002|Beta Tester|BMW\n"
+        "DL001|Испытатель Альфа Сергеевич|Tesla\n"
+        "DL002|Испытатель Бета Андреевич|Audi\n"
         "orders 2\n"
-        "DL-001|Street 7|100|2024-12-31\n"
-        "DL-002|Street 8|200|2025-01-01\n";
+        "DL001|Улица Опытная 7|100,00|2024-12-31\n"
+        "DL002|Улица Опытная 8|200,00|2025-01-01\n";
 
     EXPECT_EQ(buffer.str(), expected);
 
@@ -474,17 +474,17 @@ TEST(DataIntegratorUseCasesTest, UseCase22_SaveTwoDriversAndOrders) {
 
 TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
-    DriverRecord driver{"VB-100", "Basic Driver 1", "Brand 1"};
-    DriverRecord updated{"VB-100", "Basic Driver 1", "UpdatedBrand"};
+    DriverRecord driver{"VB100", "Смирнова Алина Павловна", "Лада"};
+    DriverRecord updated{"VB100", "Смирнова Алина Павловна", "Nissan"};
     EXPECT_TRUE(integrator.updateDriver(driver, updated));
 
-    OrderRecord originalOrder = MakeOrder(driver.licenseNumber, "Basic Street 1", "1000", "2024-12-01");
-    OrderRecord modifiedOrder = MakeOrder(driver.licenseNumber, "Prospekt Mira 10", "2700", "2024-12-01");
+    OrderRecord originalOrder = MakeOrder(driver.licenseNumber, "Улица Сиреневая 1", "1000,00", "01 Dec 2024");
+    OrderRecord modifiedOrder = MakeOrder(driver.licenseNumber, "Проспект Мира 10", "2700,00", "01 Dec 2024");
     EXPECT_TRUE(integrator.updateOrder(originalOrder, modifiedOrder));
 
-    OrderRecord additional = MakeOrder(driver.licenseNumber, "Tverskaya 5", "3100", "2025-01-15");
+    OrderRecord additional = MakeOrder(driver.licenseNumber, "Тверская 5", "3100,00", "15 Jan 2025");
     EXPECT_TRUE(integrator.addOrder(additional));
 
     auto tempPath = TempFilePathForCurrentTest();
@@ -496,7 +496,7 @@ TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
 
     auto storedDriver = reloaded.findDriver(driver.licenseNumber);
     ASSERT_TRUE(storedDriver.has_value());
-    EXPECT_EQ(storedDriver->carBrand, "UpdatedBrand");
+    EXPECT_EQ(storedDriver->carBrand, "Nissan");
 
     auto orders = reloaded.ordersForDriver(driver.licenseNumber);
     ASSERT_EQ(orders.size(), 2u);
@@ -508,51 +508,51 @@ TEST(DataIntegratorUseCasesTest, UseCase23_SaveEditsAndReload) {
 
 TEST(DataIntegratorUseCasesTest, UseCase24_ClearAfterLoading) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
     integrator.clear();
 
     EXPECT_EQ(integrator.driverCount(), 0u);
     EXPECT_EQ(integrator.orderCount(), 0u);
-    EXPECT_FALSE(integrator.hasDriver("VB-100"));
-    EXPECT_FALSE(integrator.hasOrder(MakeOrder("VB-100", "Basic Street 1", "1000", "2024-12-01")));
+    EXPECT_FALSE(integrator.hasDriver("VB100"));
+    EXPECT_FALSE(integrator.hasOrder(MakeOrder("VB100", "Улица Сиреневая 1", "1000,00", "01 Dec 2024")));
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase25_LoadBasicShowsTotals) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_basic.txt").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 50u);
 
-    auto driver = integrator.findDriver("VB-149");
+    auto driver = integrator.findDriver("VB149");
     ASSERT_TRUE(driver.has_value());
-    EXPECT_EQ(driver->fio, "Basic Driver 50");
+    EXPECT_EQ(driver->fio, "Полякова Инга Сергеевна");
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase26_LoadMultipleShowsTotalsAndOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_multiple.txt").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 50u);
 
-    auto orders200 = integrator.ordersForDriver("VM-200");
-    auto orders201 = integrator.ordersForDriver("VM-201");
+    auto orders200 = integrator.ordersForDriver("VM200");
+    auto orders201 = integrator.ordersForDriver("VM201");
     ASSERT_EQ(orders200.size(), 3u);
     ASSERT_EQ(orders201.size(), 2u);
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase27_LoadNoOrdersShowsEmptyOrders) {
     DataIntegrator integrator;
-    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.cfg").string(), kConfigTableSize));
+    ASSERT_TRUE(integrator.loadFromFile(ConfigPath("valid_no_orders.txt").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 50u);
     EXPECT_EQ(integrator.orderCount(), 0u);
     EXPECT_TRUE(integrator.hasDriverTable());
     EXPECT_TRUE(integrator.hasOrderTree());
-    EXPECT_TRUE(integrator.ordersForDriver("VN-300").empty());
-    EXPECT_TRUE(integrator.ordersForDriver("VN-349").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VN300").empty());
+    EXPECT_TRUE(integrator.ordersForDriver("VN349").empty());
 }
 
 namespace {
@@ -560,17 +560,17 @@ namespace {
 void PrepareDiagnosticsData(DataIntegrator& integrator) {
     ASSERT_TRUE(integrator.createDriverTable(32));
     ASSERT_TRUE(integrator.createOrderTree());
-    DriverRecord driver1{"DL-HASH-1", "Alpha Tester", "Tesla"};
-    DriverRecord driver2{"DL-HASH-2", "Beta Tester", "Audi"};
-    DriverRecord driver3{"DL-HASH-3", "Gamma Tester", "BMW"};
+    DriverRecord driver1{"DLHASH1", "Испытатель Альфа Сергеевич", "Tesla"};
+    DriverRecord driver2{"DLHASH2", "Испытатель Бета Андреевич", "Audi"};
+    DriverRecord driver3{"DLHASH3", "Испытатель Гамма Львович", "Bmw"};
     ASSERT_TRUE(integrator.addDriver(driver1));
     ASSERT_TRUE(integrator.addDriver(driver2));
     ASSERT_TRUE(integrator.addDriver(driver3));
 
-    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver1.licenseNumber, "Alpha", "100", "2025-04-01")));
-    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver2.licenseNumber, "Beta", "200", "2025-04-02")));
-    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver3.licenseNumber, "Gamma", "300", "2025-04-03")));
-    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver1.licenseNumber, "Alpha Avenue", "400", "2025-04-04")));
+    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver1.licenseNumber, "Проспект Альфа 1", "100,00", "01 Apr 2025")));
+    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver2.licenseNumber, "Проспект Бета 2", "200,00", "02 Apr 2025")));
+    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver3.licenseNumber, "Проспект Гамма 3", "300,00", "03 Apr 2025")));
+    ASSERT_TRUE(integrator.addOrder(MakeOrder(driver1.licenseNumber, "Проспект Альфа 4", "400,00", "04 Apr 2025")));
 }
 
 }  // namespace
@@ -581,14 +581,14 @@ TEST(DataIntegratorUseCasesTest, UseCase28_ShowDiagnosticsDumps) {
 
     auto hashDump = integrator.hashTableAsText();
     EXPECT_NE(hashDump.find("Водителей: 3"), std::string::npos);
-    EXPECT_NE(hashDump.find("ФИО: Alpha Tester"), std::string::npos);
-    EXPECT_NE(hashDump.find("ФИО: Beta Tester"), std::string::npos);
-    EXPECT_NE(hashDump.find("ФИО: Gamma Tester"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Испытатель Альфа Сергеевич"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Испытатель Бета Андреевич"), std::string::npos);
+    EXPECT_NE(hashDump.find("ФИО: Испытатель Гамма Львович"), std::string::npos);
 
     auto treeDump = integrator.orderTreeAsText();
     EXPECT_NE(treeDump.find("Всего заказов: 4"), std::string::npos);
-    EXPECT_NE(treeDump.find("DL-HASH-1"), std::string::npos);
-    EXPECT_NE(treeDump.find("Alpha Avenue"), std::string::npos);
+    EXPECT_NE(treeDump.find("DLHASH1"), std::string::npos);
+    EXPECT_NE(treeDump.find("Проспект Альфа 4"), std::string::npos);
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
 }
 
@@ -666,7 +666,7 @@ TEST(DataIntegratorUseCasesTest, UseCase31_LoadInvalidDoesNotOverwrite) {
     DriverRecord driver{"SAFE-1", "Safe Driver", "VW"};
     ASSERT_TRUE(integrator.addDriver(driver));
 
-    EXPECT_FALSE(integrator.loadFromFile(ConfigPath("invalid_unknown_driver.cfg").string(), kConfigTableSize));
+    EXPECT_FALSE(integrator.loadFromFile(ConfigPath("invalid_unknown_driver.txt").string(), kConfigTableSize));
 
     EXPECT_EQ(integrator.driverCount(), 1u);
     EXPECT_TRUE(integrator.hasDriver("SAFE-1"));
