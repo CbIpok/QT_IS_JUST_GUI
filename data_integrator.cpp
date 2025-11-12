@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "string_utils.hpp"
+#include "validation.hpp"
 
 namespace {
 
@@ -17,9 +18,13 @@ bool parseDriverLine(const std::string& line, DriverRecord& out) {
     for (std::size_t i = 0; i < 3; ++i) {
         string_utils::trimCarriageReturn(parts[i]);
         string_utils::stripUtf8Bom(parts[i]);
+        parts[i] = string_utils::trim(parts[i]);
     }
 
-    if (parts[0].empty()) return false;
+    if (!validation::isValidLicense(parts[0]) || !validation::isValidFio(parts[1])
+        || !validation::isValidCarBrand(parts[2])) {
+        return false;
+    }
 
     out.licenseNumber = parts[0];
     out.fio = parts[1];
@@ -33,17 +38,18 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
     for (std::size_t i = 0; i < 4; ++i) {
         string_utils::trimCarriageReturn(parts[i]);
         string_utils::stripUtf8Bom(parts[i]);
+        parts[i] = string_utils::trim(parts[i]);
     }
 
-    if (parts[0].empty()) return false;
+    Date parsed{};
+    if (!validation::isValidLicense(parts[0]) || !validation::isValidAddress(parts[1])
+        || !validation::isValidCost(parts[2]) || !validation::parseDate(parts[3], parsed)) {
+        return false;
+    }
 
     out.licenseNumber = parts[0];
     out.address = parts[1];
     out.cost = parts[2];
-    Date parsed{};
-    if (!Date::parse(parts[3], parsed)) {
-        return false;
-    }
     out.date = parsed;
     return true;
 }
@@ -194,10 +200,18 @@ void appendDateNodeDetailed(const AVLNode*                     node,
 
     std::string label = node->license;
     if (label.size() == 8) {
-        std::string iso = label.substr(0, 4) + "-" + label.substr(4, 2) + "-" + label.substr(6, 2);
-        Date parsed{};
-        if (Date::parse(iso, parsed)) {
-            label = parsed.displayString();
+        int year = 0;
+        int month = 0;
+        int day = 0;
+        if (string_utils::parseInteger(label.substr(0, 4), year)
+            && string_utils::parseInteger(label.substr(4, 2), month)
+            && string_utils::parseInteger(label.substr(6, 2), day)) {
+            if (month >= 1 && month <= 12) {
+                Date parsed(day, static_cast<Month>(month), year);
+                if (parsed.isValid()) {
+                    label = parsed.displayString();
+                }
+            }
         }
     }
     out << label << '\n';

@@ -14,6 +14,7 @@ add_library(cursedarch STATIC
     DoublyLinkedList.cpp
     data_integrator.cpp
     string_utils.cpp
+    validation.cpp
 )
 
 target_include_directories(cursedarch
