@@ -25,9 +25,9 @@
 #include <optional>
 #include <sstream>
 #include <string>
-#include <vector>
 
 #include "data_integrator.hpp"
+#include "string_utils.hpp"
 #include "validation.hpp"
 
 namespace {
@@ -511,7 +511,14 @@ void IntegratorGUI::showTextWindow(const std::string& title, const std::string& 
                 return;
             }
 
-            std::ofstream output(filename, std::ios::binary);
+            std::string path(filename);
+            if (!string_utils::isValidTxtFilePath(path)) {
+                fl_message_title("Ошибка");
+                fl_alert("Файл должен иметь латинское имя и расширение .txt.");
+                return;
+            }
+
+            std::ofstream output(path, std::ios::binary);
             if (!output) {
                 fl_message_title("Ошибка");
                 fl_alert("Не удалось открыть файл для записи.");
@@ -781,19 +788,47 @@ std::optional<std::string> IntegratorGUI::promptFilePath(const char* dialogTitle
         chooser.options(Fl_Native_File_Chooser::SAVEAS_CONFIRM);
     }
 
+    auto validatePath = [&](const std::string& candidate) -> std::optional<std::string> {
+        if (candidate.empty()) {
+            if (allowEmpty) {
+                return std::string();
+            }
+            showError("Имя файла не может быть пустым.");
+            return std::nullopt;
+        }
+        if (!string_utils::isValidTxtFilePath(candidate)) {
+            showError("Имя файла должно быть латиницей и иметь расширение .txt.");
+            return std::nullopt;
+        }
+        return candidate;
+    };
+
     int result = chooser.show();
     if (result == 0) {
         const char* filename = chooser.filename();
         if (filename && *filename) {
-            return std::string(filename);
+            auto validated = validatePath(std::string(filename));
+            if (validated) {
+                return validated;
+            }
+            return std::nullopt;
         }
-        return allowEmpty ? std::optional<std::string>(std::string()) : std::nullopt;
+        auto validated = validatePath(std::string());
+        if (validated) {
+            return validated;
+        }
+        return std::nullopt;
     }
     if (result == 1) {
-        if (allowEmpty) {
-            return promptString(manualPrompt);
+        std::optional<std::string> manual = allowEmpty ? promptString(manualPrompt) : promptNonEmpty(manualPrompt);
+        if (!manual) {
+            return std::nullopt;
         }
-        return promptNonEmpty(manualPrompt);
+        auto validated = validatePath(*manual);
+        if (validated) {
+            return validated;
+        }
+        return std::nullopt;
     }
 
     std::ostringstream error;

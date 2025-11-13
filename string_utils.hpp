@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <string>
-#include <vector>
 #include <cstdint>
 
 namespace string_utils {
@@ -21,7 +20,13 @@ bool splitLine(const std::string& line, char delimiter, std::string* fields, std
 
 bool decodeUtf8(const std::string& text, std::u32string& out);
 
-bool splitBySpaces(const std::string& value, std::vector<std::string>& words);
+std::string extractFileName(const std::string& path);
+
+bool hasTxtExtension(const std::string& path);
+
+bool isLatinFileName(const std::string& path);
+
+bool isValidTxtFilePath(const std::string& path);
 
 } // namespace string_utils
 

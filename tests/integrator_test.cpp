@@ -457,10 +457,10 @@ TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
 
     auto basePath = TempFilePathForCurrentTest();
-    auto hashPath = basePath;
-    hashPath += ".hash";
-    auto treePath = basePath;
-    treePath += ".tree";
+    auto baseDir = basePath.parent_path();
+    std::string stem = basePath.stem().string();
+    auto hashPath = baseDir / (stem + "_hash.txt");
+    auto treePath = baseDir / (stem + "_tree.txt");
 
     RemoveIfExists(hashPath);
     RemoveIfExists(treePath);

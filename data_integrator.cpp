@@ -474,6 +474,9 @@ void DataIntegrator::clear() {
 }
 
 bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDriverTableSize) {
+    if (!string_utils::isValidTxtFilePath(path)) {
+        return false;
+    }
     std::ifstream input(path, std::ios::binary);
     if (!input.is_open()) return false;
 
@@ -572,6 +575,9 @@ bool DataIntegrator::loadFromFile(const std::string& path, std::size_t initialDr
 }
 
 bool DataIntegrator::loadDriversFromFile(const std::string& path, std::size_t initialDriverTableSize) {
+    if (!string_utils::isValidTxtFilePath(path)) {
+        return false;
+    }
     std::ifstream input(path, std::ios::binary);
     if (!input.is_open()) return false;
 
@@ -746,6 +752,10 @@ bool DataIntegrator::loadOrdersFromFile(const std::string& path) {
         return false;
     }
 
+    if (!string_utils::isValidTxtFilePath(path)) {
+        return false;
+    }
+
     std::ifstream input(path, std::ios::binary);
     if (!input.is_open()) return false;
 
@@ -820,6 +830,9 @@ bool DataIntegrator::loadOrdersFromFile(const std::string& path) {
 }
 
 bool DataIntegrator::saveToFile(const std::string& path) const {
+    if (!string_utils::isValidTxtFilePath(path)) {
+        return false;
+    }
     std::ofstream output(path);
     if (!output.is_open()) return false;
 
@@ -837,6 +850,10 @@ bool DataIntegrator::saveDriversToFile(const std::string& path) const {
         return false;
     }
 
+    if (!string_utils::isValidTxtFilePath(path)) {
+        return false;
+    }
+
     std::ofstream output(path);
     if (!output.is_open()) {
         return false;
@@ -846,6 +863,10 @@ bool DataIntegrator::saveDriversToFile(const std::string& path) const {
 
 bool DataIntegrator::saveOrdersToFile(const std::string& path) const {
     if (!orderTreeReady_ && !orders_.empty()) {
+        return false;
+    }
+
+    if (!string_utils::isValidTxtFilePath(path)) {
         return false;
     }
 
@@ -934,6 +955,9 @@ std::string DataIntegrator::orderDateTreeAsText() const {
 
 bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std::string& treePath) const {
     if (!hashTablePath.empty()) {
+        if (!string_utils::isValidTxtFilePath(hashTablePath)) {
+            return false;
+        }
         std::ofstream hashOut(hashTablePath);
         if (!hashOut.is_open()) {
             return false;
@@ -951,6 +975,9 @@ bool DataIntegrator::saveStructures(const std::string& hashTablePath, const std:
     }
 
     if (!treePath.empty()) {
+        if (!string_utils::isValidTxtFilePath(treePath)) {
+            return false;
+        }
         std::ofstream treeOut(treePath);
         if (!treeOut.is_open()) {
             return false;

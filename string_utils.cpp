@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
-#include <vector>
 
 namespace string_utils {
 
@@ -133,27 +132,69 @@ bool decodeUtf8(const std::string& text, std::u32string& out) {
     return true;
 }
 
-bool splitBySpaces(const std::string& value, std::vector<std::string>& words) {
-    words.clear();
-    if (value.empty() || value.front() == ' ' || value.back() == ' ') {
+std::string extractFileName(const std::string& path) {
+    if (path.empty()) {
+        return {};
+    }
+
+    std::size_t index = path.size();
+    while (index > 0) {
+        char ch = path[index - 1];
+        if (ch == '/' || ch == '\\') {
+            break;
+        }
+        --index;
+    }
+
+    return path.substr(index);
+}
+
+bool hasTxtExtension(const std::string& path) {
+    std::string fileName = extractFileName(path);
+    if (fileName.size() < 4) {
         return false;
     }
 
-    std::size_t start = 0;
-    while (start < value.size()) {
-        std::size_t end = value.find(' ', start);
-        std::size_t length = (end == std::string::npos) ? value.size() - start : end - start;
-        if (length == 0) {
-            return false;
-        }
-        words.emplace_back(value.substr(start, length));
-        if (end == std::string::npos) {
-            break;
-        }
-        start = end + 1;
+    std::string extension = toLower(fileName.substr(fileName.size() - 4));
+    return extension == ".txt";
+}
+
+namespace {
+bool isLatinOrDigit(char ch) {
+    if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+        return true;
+    }
+    if (ch >= '0' && ch <= '9') {
+        return true;
+    }
+    return ch == '_' || ch == '-';
+}
+} // namespace
+
+bool isLatinFileName(const std::string& path) {
+    std::string fileName = extractFileName(path);
+    if (!hasTxtExtension(fileName)) {
+        return false;
     }
 
+    if (fileName.size() <= 4) {
+        return false;
+    }
+
+    std::size_t limit = fileName.size() - 4;
+    for (std::size_t i = 0; i < limit; ++i) {
+        if (!isLatinOrDigit(fileName[i])) {
+            return false;
+        }
+    }
     return true;
+}
+
+bool isValidTxtFilePath(const std::string& path) {
+    if (!hasTxtExtension(path)) {
+        return false;
+    }
+    return isLatinFileName(path);
 }
 
 } // namespace string_utils

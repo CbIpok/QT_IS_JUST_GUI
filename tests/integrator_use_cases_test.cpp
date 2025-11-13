@@ -26,7 +26,7 @@ std::filesystem::path TempFilePathForCurrentTest() {
     else {
         fileName += "temp";
     }
-    fileName += ".tmp";
+    fileName += ".txt";
     return tempDir / fileName;
 }
 
@@ -600,10 +600,10 @@ TEST(DataIntegratorUseCasesTest, UseCase29_SaveDiagnosticsSeparately) {
     auto treeDump = integrator.orderTreeAsText();
 
     auto base = TempFilePathForCurrentTest();
-    auto hashPath = base;
-    hashPath += ".hash";
-    auto treePath = base;
-    treePath += ".tree";
+    auto baseDir = base.parent_path();
+    std::string stem = base.stem().string();
+    auto hashPath = baseDir / (stem + "_hash.txt");
+    auto treePath = baseDir / (stem + "_tree.txt");
     RemoveIfExists(hashPath);
     RemoveIfExists(treePath);
 
@@ -635,10 +635,10 @@ TEST(DataIntegratorUseCasesTest, UseCase30_SaveDiagnosticsBothStructures) {
     auto treeDump = integrator.orderTreeAsText();
 
     auto base = TempFilePathForCurrentTest();
-    auto hashPath = base;
-    hashPath += ".hash";
-    auto treePath = base;
-    treePath += ".tree";
+    auto baseDir = base.parent_path();
+    std::string stem = base.stem().string();
+    auto hashPath = baseDir / (stem + "_hash.txt");
+    auto treePath = baseDir / (stem + "_tree.txt");
     RemoveIfExists(hashPath);
     RemoveIfExists(treePath);
 
