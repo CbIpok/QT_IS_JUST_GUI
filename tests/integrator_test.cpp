@@ -461,6 +461,8 @@ TEST(DataIntegratorTest, IntegratorDumpsStructuresToText) {
     EXPECT_NE(treeDump.find("Проспект Альфа 1"), std::string::npos);
     EXPECT_NE(treeDump.find("Проспект Альфа 4"), std::string::npos);
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
+    EXPECT_NE(treeDump.find(" (L)"), std::string::npos);
+    EXPECT_NE(treeDump.find(" (R)"), std::string::npos);
 
     auto basePath = TempFilePathForCurrentTest();
     auto baseDir = basePath.parent_path();

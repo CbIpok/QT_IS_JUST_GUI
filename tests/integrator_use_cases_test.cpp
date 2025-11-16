@@ -593,6 +593,8 @@ TEST(DataIntegratorUseCasesTest, UseCase28_ShowDiagnosticsDumps) {
     EXPECT_NE(treeDump.find("DLHASH1"), std::string::npos);
     EXPECT_NE(treeDump.find("Проспект Альфа 4"), std::string::npos);
     EXPECT_NE(treeDump.find("|--"), std::string::npos);
+    EXPECT_NE(treeDump.find(" (L)"), std::string::npos);
+    EXPECT_NE(treeDump.find(" (R)"), std::string::npos);
 }
 
 TEST(DataIntegratorUseCasesTest, UseCase29_SaveDiagnosticsSeparately) {

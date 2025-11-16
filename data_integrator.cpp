@@ -146,7 +146,8 @@ void appendOrderNodeDetailed(const AVLNode*                     node,
                              std::ostringstream&                 out,
                              const std::string&                  prefix,
                              bool                                isTail,
-                             bool                                isRoot) {
+                             bool                                isRoot,
+                             bool                                isLeftChild) {
     if (!node) {
         return;
     }
@@ -155,7 +156,11 @@ void appendOrderNodeDetailed(const AVLNode*                     node,
     if (!isRoot) {
         out << (isTail ? "`--" : "|--");
     }
-    out << node->license << '\n';
+    out << node->license;
+    if (!isRoot) {
+        out << " (" << (isLeftChild ? 'L' : 'R') << ")";
+    }
+    out << '\n';
 
     std::string childPrefix = prefix;
     if (!isRoot) {
@@ -181,10 +186,11 @@ void appendOrderNodeDetailed(const AVLNode*                     node,
     }
 
     if (node->left) {
-        appendOrderNodeDetailed(node->left, orders, out, childPrefix, node->right == nullptr, false);
+        appendOrderNodeDetailed(
+            node->left, orders, out, childPrefix, node->right == nullptr, false, true);
     }
     if (node->right) {
-        appendOrderNodeDetailed(node->right, orders, out, childPrefix, true, false);
+        appendOrderNodeDetailed(node->right, orders, out, childPrefix, true, false, false);
     }
 }
 
@@ -193,7 +199,8 @@ void appendDateNodeDetailed(const AVLNode*                     node,
                             std::ostringstream&                 out,
                             const std::string&                  prefix,
                             bool                                isTail,
-                            bool                                isRoot) {
+                            bool                                isRoot,
+                            bool                                isLeftChild) {
     if (!node) {
         return;
     }
@@ -219,7 +226,11 @@ void appendDateNodeDetailed(const AVLNode*                     node,
             }
         }
     }
-    out << label << '\n';
+    out << label;
+    if (!isRoot) {
+        out << " (" << (isLeftChild ? 'L' : 'R') << ")";
+    }
+    out << '\n';
 
     std::string childPrefix = prefix;
     if (!isRoot) {
@@ -245,10 +256,11 @@ void appendDateNodeDetailed(const AVLNode*                     node,
     }
 
     if (node->left) {
-        appendDateNodeDetailed(node->left, orders, out, childPrefix, node->right == nullptr, false);
+        appendDateNodeDetailed(
+            node->left, orders, out, childPrefix, node->right == nullptr, false, true);
     }
     if (node->right) {
-        appendDateNodeDetailed(node->right, orders, out, childPrefix, true, false);
+        appendDateNodeDetailed(node->right, orders, out, childPrefix, true, false, false);
     }
 }
 
@@ -938,7 +950,7 @@ std::string DataIntegrator::orderTreeAsText() const {
     std::ostringstream out;
     out << "Всего заказов: " << orders_.size() << '\n';
     out << "----------------------------------------\n";
-    appendOrderNodeDetailed(orderTree_.root, orders_, out, "", true, true);
+    appendOrderNodeDetailed(orderTree_.root, orders_, out, "", true, true, true);
     return out.str();
 }
 
@@ -955,7 +967,7 @@ std::string DataIntegrator::orderDateTreeAsText() const {
     std::ostringstream out;
     out << "Всего заказов: " << orders_.size() << '\n';
     out << "----------------------------------------\n";
-    appendDateNodeDetailed(orderDateTree_.root, orders_, out, "", true, true);
+    appendDateNodeDetailed(orderDateTree_.root, orders_, out, "", true, true, true);
     return out.str();
 }
 
