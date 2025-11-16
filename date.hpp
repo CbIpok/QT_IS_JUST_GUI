@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ctime>
 #include <iomanip>
 #include <regex>
 #include <sstream>
@@ -77,12 +78,55 @@ struct Date {
     bool isValid() const {
         int monthValue = static_cast<int>(month);
         if (monthValue < 1 || monthValue > 12) return false;
-        if (day < 1 || day > 31) return false;
         if (year < 0) return false;
+
+        int maxDay = maxDaysInMonth(month, year);
+        if (day < 1 || day > maxDay) return false;
+
+        Date today = currentSystemDate();
+        if (year > today.year) return false;
+        if (year == today.year) {
+            int todayMonthValue = static_cast<int>(today.month);
+            if (monthValue > todayMonthValue) return false;
+            if (monthValue == todayMonthValue && day > today.day) return false;
+        }
+
         return true;
     }
 
 private:
+    static bool isLeapYear(int year) {
+        if (year % 400 == 0) return true;
+        if (year % 100 == 0) return false;
+        return year % 4 == 0;
+    }
+
+    static int maxDaysInMonth(Month month, int year) {
+        static const int DAYS_IN_MONTH[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        int index = static_cast<int>(month) - 1;
+        if (index < 0 || index >= 12) {
+            return 31;
+        }
+
+        if (month == Month::Feb && isLeapYear(year)) {
+            return 29;
+        }
+
+        return DAYS_IN_MONTH[index];
+    }
+
+    static Date currentSystemDate() {
+        std::time_t now = std::time(nullptr);
+        std::tm* local = std::localtime(&now);
+        if (!local) {
+            return Date();
+        }
+        int currentYear = local->tm_year + 1900;
+        Month currentMonth = static_cast<Month>(local->tm_mon + 1);
+        int currentDay = local->tm_mday;
+        return Date(currentDay, currentMonth, currentYear);
+    }
+
     static const char* monthName(Month month) {
         static const char* MONTH_NAMES[12] = {
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
