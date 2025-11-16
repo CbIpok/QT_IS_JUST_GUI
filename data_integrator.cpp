@@ -1112,8 +1112,7 @@ void DataIntegrator::collectOrdersInDateRange(const AVLNode* node,
     collectOrdersInDateRange(node->right, fromKey, toKey, hasFrom, hasTo, indices);
 }
 
-DoublyLinkedList<ReportEntry> DataIntegrator::generateReport(const std::string& licenseNumber,
-                                                             const std::string& carBrand,
+DoublyLinkedList<ReportEntry> DataIntegrator::generateReport(const std::string& carBrand,
                                                              const std::string& address,
                                                              const std::string& dateFrom,
                                                              const std::string& dateTo) const {
@@ -1139,31 +1138,13 @@ DoublyLinkedList<ReportEntry> DataIntegrator::generateReport(const std::string& 
         });
     }
 
-    std::optional<DriverRecord> specificDriver;
-    if (!licenseNumber.empty()) {
-        specificDriver = findDriver(licenseNumber);
-        if (!specificDriver.has_value()) {
-            return result;
-        }
-    }
-
     candidateIndices.for_each([&](std::size_t index, std::size_t) {
         if (index >= orders_.size()) {
             return;
         }
         const OrderRecord& order = orders_.at(index);
 
-        if (!licenseNumber.empty() && order.licenseNumber != licenseNumber) {
-            return;
-        }
-
-        std::optional<DriverRecord> driverOpt;
-        if (specificDriver.has_value() && order.licenseNumber == specificDriver->licenseNumber) {
-            driverOpt = specificDriver;
-        }
-        else {
-            driverOpt = findDriver(order.licenseNumber);
-        }
+        auto driverOpt = findDriver(order.licenseNumber);
         if (!driverOpt.has_value()) {
             return;
         }

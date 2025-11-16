@@ -290,8 +290,7 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
     ASSERT_TRUE(integrator.addOrder(laterOrder));
     ASSERT_TRUE(integrator.addOrder(otherAddress));
 
-    auto results = integrator.generateReport(driver.licenseNumber,
-                                             driver.carBrand,
+    auto results = integrator.generateReport(driver.carBrand,
                                              matchOrder.address,
                                              "01 Feb 2025",
                                              "28 Feb 2025");
@@ -303,15 +302,13 @@ TEST(DataIntegratorUseCasesTest, UseCase13_GenerateReportByCriteria) {
     EXPECT_NE(formatted.find(driver.fio), std::string::npos);
     EXPECT_NE(formatted.find(matchOrder.date.displayString()), std::string::npos);
 
-    auto none = integrator.generateReport(driver.licenseNumber,
-                                          "IncorrectBrand",
+    auto none = integrator.generateReport("IncorrectBrand",
                                           matchOrder.address,
                                           "01 Feb 2025",
                                           "28 Feb 2025");
     EXPECT_TRUE(none.empty());
 
-    auto outsideRange = integrator.generateReport(driver.licenseNumber,
-                                                  driver.carBrand,
+    auto outsideRange = integrator.generateReport(driver.carBrand,
                                                   matchOrder.address,
                                                   "01 Mar 2025",
                                                   "30 Mar 2025");

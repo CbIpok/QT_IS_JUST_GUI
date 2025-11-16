@@ -63,8 +63,7 @@ public:
     std::string orderDateTreeAsText() const;
     bool saveStructures(const std::string& hashTablePath, const std::string& treePath) const;
 
-    DoublyLinkedList<ReportEntry> generateReport(const std::string& licenseNumber,
-                                                 const std::string& carBrand,
+    DoublyLinkedList<ReportEntry> generateReport(const std::string& carBrand,
                                                  const std::string& address,
                                                  const std::string& dateFrom,
                                                  const std::string& dateTo) const;

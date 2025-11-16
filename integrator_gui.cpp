@@ -1252,8 +1252,6 @@ void IntegratorGUI::handleGenerateReport() {
         return;
     }
 
-    auto license = promptLicense("Номер лицензии для отчёта (можно оставить пустым):", "", true);
-    if (!license) return;
     auto carBrand = promptCarBrand("Марка автомобиля (можно оставить пустым):", "", true);
     if (!carBrand) return;
     auto address = promptAddress("Адрес заказа (можно оставить пустым):", "", true);
@@ -1277,7 +1275,7 @@ void IntegratorGUI::handleGenerateReport() {
                                   true);
     if (!toDate) return;
 
-    DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*license, *carBrand, *address, *fromDate, *toDate);
+    DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*carBrand, *address, *fromDate, *toDate);
     std::string text = integrator_.formatReport(entries);
     showTextWindow("Отчёт по водителю", text, true);
 }
