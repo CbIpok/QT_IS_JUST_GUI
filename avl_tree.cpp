@@ -225,11 +225,12 @@ bool avl_replace_index(AVLTree* tree, const std::string& license, std::size_t ol
 
 namespace {
 
-void tree_to_stream(const AVLNode* node,
+void tree_to_stream(const AVLNode*   node,
                     std::ostream&     out,
                     const std::string& prefix,
                     bool                isTail,
-                    bool                isRoot) {
+                    bool                isRoot,
+                    bool                isLeftChild) {
     if (!node) {
         return;
     }
@@ -240,6 +241,9 @@ void tree_to_stream(const AVLNode* node,
     }
 
     out << node->license;
+    if (!isRoot) {
+        out << " (" << (isLeftChild ? 'L' : 'R') << ")";
+    }
 
     if (!node->listIndices.empty()) {
         out << " [";
@@ -267,18 +271,18 @@ void tree_to_stream(const AVLNode* node,
 
     if (node->left) {
         if (isRoot) {
-            tree_to_stream(node->left, out, "", !node->right, false);
+            tree_to_stream(node->left, out, "", !node->right, false, true);
         }
         else {
-            tree_to_stream(node->left, out, childPrefix, !node->right, false);
+            tree_to_stream(node->left, out, childPrefix, !node->right, false, true);
         }
     }
     if (node->right) {
         if (isRoot) {
-            tree_to_stream(node->right, out, "", true, false);
+            tree_to_stream(node->right, out, "", true, false, false);
         }
         else {
-            tree_to_stream(node->right, out, childPrefix, true, false);
+            tree_to_stream(node->right, out, childPrefix, true, false, false);
         }
     }
 }
@@ -292,7 +296,7 @@ std::string avl_tree_to_string(const AVLTree* tree) {
         return out.str();
     }
 
-    tree_to_stream(tree->root, out, "", true, true);
+    tree_to_stream(tree->root, out, "", true, true, false);
     return out.str();
 }
 

@@ -67,6 +67,8 @@ TEST(AVLTreeTest, DumpToStringContainsBranching) {
     EXPECT_NE(dump.find("m"), std::string::npos);
     EXPECT_NE(dump.find("|--"), std::string::npos);
     EXPECT_NE(dump.find("`--"), std::string::npos);
+    EXPECT_NE(dump.find(" (L)"), std::string::npos);
+    EXPECT_NE(dump.find(" (R)"), std::string::npos);
 
     avl_free(&tree);
 }
