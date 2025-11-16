@@ -1128,6 +1128,10 @@ DoublyLinkedList<ReportEntry> DataIntegrator::generateReport(const std::string& 
     std::string fromKey = hasFrom ? fromDate.key() : std::string();
     std::string toKey = hasTo ? toDate.key() : std::string();
 
+    if (hasFrom && hasTo && fromKey > toKey) {
+        return result;
+    }
+
     DoublyLinkedList<std::size_t> candidateIndices;
     if ((hasFrom || hasTo) && orderDateTree_.root) {
         collectOrdersInDateRange(fromKey, toKey, hasFrom, hasTo, candidateIndices);

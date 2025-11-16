@@ -1275,6 +1275,15 @@ void IntegratorGUI::handleGenerateReport() {
                                   true);
     if (!toDate) return;
 
+    Date parsedFrom{};
+    Date parsedTo{};
+    bool hasFromValue = !fromDate->empty() && Date::parse(*fromDate, parsedFrom);
+    bool hasToValue = !toDate->empty() && Date::parse(*toDate, parsedTo);
+    if (hasFromValue && hasToValue && parsedFrom.key() > parsedTo.key()) {
+        showError("Начальная дата не может быть позже конечной.");
+        return;
+    }
+
     DoublyLinkedList<ReportEntry> entries = integrator_.generateReport(*carBrand, *address, *fromDate, *toDate);
     std::string text = integrator_.formatReport(entries);
     showTextWindow("Отчёт по водителю", text, true);
