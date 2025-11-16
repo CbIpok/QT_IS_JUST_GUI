@@ -160,7 +160,7 @@ protected:
                     switch (col) {
                         case 0: text = order.licenseNumber; break;
                         case 1: text = order.address; break;
-                        case 2: text = order.cost; break;
+                        case 2: text = string_utils::formatCost(order.cost); break;
                         case 3: text = order.date.displayString(); break;
                         default: break;
                     }
@@ -726,7 +726,8 @@ std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial
     std::optional<std::string> address = promptAddress("Адрес заказа:", initial ? initial->address : "");
     if (!address) return std::nullopt;
 
-    std::optional<std::string> cost = promptCost("Стоимость:", initial ? initial->cost : "");
+    std::optional<std::string> cost = promptCost(
+        "Стоимость:", initial ? string_utils::formatCost(initial->cost) : "");
     if (!cost) return std::nullopt;
 
     std::string datePromptDefault;
@@ -739,7 +740,13 @@ std::optional<OrderRecord> IntegratorGUI::promptOrder(const OrderRecord* initial
         return std::nullopt;
     }
 
-    OrderRecord record{*license, *address, *cost, *parsedDate};
+    double numericCost = 0.0;
+    if (!string_utils::parseCost(*cost, numericCost)) {
+        showError("Не удалось преобразовать стоимость.");
+        return std::nullopt;
+    }
+
+    OrderRecord record{*license, *address, numericCost, *parsedDate};
     return record;
 }
 
@@ -1114,7 +1121,8 @@ void IntegratorGUI::handleUpdateOrder() {
     list << "Заказы водителя " << *license << ":\n\n";
     for (std::size_t i = 0; i < orders.size(); ++i) {
         const OrderRecord& order = orders[i];
-        list << (i + 1) << ") " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
+        list << (i + 1) << ") " << order.address << " | "
+             << string_utils::formatCost(order.cost) << " | " << order.date.displayString() << "\n";
     }
     showInfo(list.str());
 
@@ -1152,7 +1160,8 @@ void IntegratorGUI::handleRemoveOrder() {
     list << "Заказы водителя " << *license << ":\n\n";
     for (std::size_t i = 0; i < orders.size(); ++i) {
         const OrderRecord& order = orders[i];
-        list << (i + 1) << ") " << order.address << " | " << order.cost << " | " << order.date.displayString() << "\n";
+        list << (i + 1) << ") " << order.address << " | "
+             << string_utils::formatCost(order.cost) << " | " << order.date.displayString() << "\n";
     }
     showInfo(list.str());
 

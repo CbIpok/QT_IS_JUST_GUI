@@ -62,7 +62,7 @@ inline bool SplitBySpacesStrict(const std::string& s, DoublyLinkedList<std::stri
     std::string cur;
     for (char ch : s) {
         if (ch == ' ') {
-            if (cur.empty()) return false; // âåäóùèé èëè äâîéíîé ïðîáåë
+            if (cur.empty()) return false; // Ã¢Ã¥Ã¤Ã³Ã¹Ã¨Ã© Ã¨Ã«Ã¨ Ã¤Ã¢Ã®Ã©Ã­Ã®Ã© Ã¯Ã°Ã®Ã¡Ã¥Ã«
             out.push_back(cur);
             cur.clear();
         }
@@ -70,7 +70,7 @@ inline bool SplitBySpacesStrict(const std::string& s, DoublyLinkedList<std::stri
             cur.push_back(ch);
         }
     }
-    if (cur.empty()) return false; // çàìûêàþùèé ïðîáåë
+    if (cur.empty()) return false; // Ã§Ã Ã¬Ã»ÃªÃ Ã¾Ã¹Ã¨Ã© Ã¯Ã°Ã®Ã¡Ã¥Ã«
     out.push_back(cur);
     return true;
 }
@@ -207,33 +207,8 @@ bool isValidAddress(const std::string& value) {
 }
 
 bool isValidCost(const std::string& value) {
-    if (value.empty()) {
-        return false;
-    }
-
-    std::size_t commaPos = value.find(',');
-    if (commaPos == std::string::npos) {
-        return false;
-    }
-
-    std::string integerPart = value.substr(0, commaPos);
-    std::string fractionalPart = value.substr(commaPos + 1);
-
-    if (integerPart.empty() || fractionalPart.size() != 2) {
-        return false;
-    }
-
-    if (!std::all_of(integerPart.begin(), integerPart.end(), [](unsigned char ch) { return ch >= '0' && ch <= '9'; })
-        || !std::all_of(fractionalPart.begin(), fractionalPart.end(), [](unsigned char ch) { return ch >= '0' && ch <= '9'; })) {
-        return false;
-    }
-
-    bool integerAllZeros = std::all_of(integerPart.begin(), integerPart.end(), [](char ch) { return ch == '0'; });
-    if (integerAllZeros && fractionalPart == "00") {
-        return false;
-    }
-
-    return true;
+    double parsed = 0.0;
+    return string_utils::parseCost(value, parsed);
 }
 
 bool parseDate(const std::string& value, Date& out) {

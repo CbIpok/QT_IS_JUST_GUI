@@ -1,6 +1,7 @@
 #include "data_integrator.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -42,14 +43,16 @@ bool parseOrderLine(const std::string& line, OrderRecord& out) {
     }
 
     Date parsed{};
+    double parsedCost = 0.0;
     if (!validation::isValidLicense(parts[0]) || !validation::isValidAddress(parts[1])
-        || !validation::isValidCost(parts[2]) || !validation::parseDate(parts[3], parsed)) {
+        || !validation::isValidCost(parts[2]) || !validation::parseDate(parts[3], parsed)
+        || !string_utils::parseCost(parts[2], parsedCost)) {
         return false;
     }
 
     out.licenseNumber = parts[0];
     out.address = parts[1];
-    out.cost = parts[2];
+    out.cost = parsedCost;
     out.date = parsed;
     return true;
 }
@@ -72,7 +75,8 @@ bool writeOrderSection(std::ostream& output, const DoublyLinkedList<OrderRecord>
         return false;
     }
     orders.for_each([&](const OrderRecord& order, std::size_t) {
-        output << order.licenseNumber << '|' << order.address << '|' << order.cost << '|' << order.date.storageString()
+        output << order.licenseNumber << '|' << order.address << '|' << string_utils::formatCost(order.cost)
+               << '|' << order.date.storageString()
                << '\n';
     });
     output.flush();
@@ -166,7 +170,8 @@ void appendOrderNodeDetailed(const AVLNode*                     node,
             out << childPrefix << "• ";
             if (listIndex < orders.size()) {
                 const OrderRecord& order = orders.at(listIndex);
-                out << order.address << " | " << order.cost << " | " << order.date.displayString();
+                out << order.address << " | " << string_utils::formatCost(order.cost) << " | "
+                    << order.date.displayString();
             }
             else {
                 out << "(недопустимый индекс " << listIndex << ")";
@@ -229,7 +234,8 @@ void appendDateNodeDetailed(const AVLNode*                     node,
             out << childPrefix << "• ";
             if (listIndex < orders.size()) {
                 const OrderRecord& order = orders.at(listIndex);
-                out << order.licenseNumber << " | " << order.address << " | " << order.cost;
+                out << order.licenseNumber << " | " << order.address << " | "
+                    << string_utils::formatCost(order.cost);
             }
             else {
                 out << "(недопустимый индекс " << listIndex << ")";
@@ -1067,7 +1073,7 @@ bool DataIntegrator::validateDriverRecord(const DriverRecord& record) const {
 bool DataIntegrator::validateOrderRecord(const OrderRecord& record) const {
     if (record.licenseNumber.empty()) return false;
     if (record.address.empty()) return false;
-    if (record.cost.empty()) return false;
+    if (!(record.cost > 0.0) || !std::isfinite(record.cost)) return false;
     if (!record.date.isValid()) return false;
     return true;
 }
@@ -1180,7 +1186,7 @@ DoublyLinkedList<ReportEntry> DataIntegrator::generateReport(const std::string& 
                                      driver.fio,
                                      driver.carBrand,
                                      order.address,
-                                     order.cost,
+                                     string_utils::formatCost(order.cost),
                                      order.date.displayString()});
     });
 

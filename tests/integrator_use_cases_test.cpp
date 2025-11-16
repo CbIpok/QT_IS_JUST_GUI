@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include "data_integrator.hpp"
+#include "string_utils.hpp"
 
 namespace {
 
@@ -44,7 +45,12 @@ OrderRecord MakeOrder(const std::string& license,
         ADD_FAILURE() << "Не удалось разобрать дату: " << dateText;
         parsed = Date();
     }
-    return OrderRecord{license, address, cost, parsed};
+    double parsedCost = 0.0;
+    if (!string_utils::parseCost(cost, parsedCost)) {
+        ADD_FAILURE() << "Не удалось преобразовать стоимость: " << cost;
+        parsedCost = 0.0;
+    }
+    return OrderRecord{license, address, parsedCost, parsed};
 }
 
 template <typename T>
@@ -334,7 +340,7 @@ TEST(DataIntegratorUseCasesTest, UseCase13_FilterByLicenseNumber) {
     auto orders = integrator.ordersForDriver("VB100");
     ASSERT_EQ(orders.size(), 1u);
     EXPECT_EQ(orders.front().address, "Улица Сиреневая 1");
-    EXPECT_EQ(orders.front().cost, "1000,00");
+    EXPECT_DOUBLE_EQ(orders.front().cost, 1000.0);
     EXPECT_EQ(orders.front().date.displayString(), "01 Dec 2024");
 }
 
@@ -373,7 +379,7 @@ TEST(DataIntegratorUseCasesTest, UseCase17_FilterOrdersByDriverLicense) {
     auto orders = integrator.ordersForDriver("VB149");
     ASSERT_EQ(orders.size(), 1u);
     EXPECT_EQ(orders.front().address, "Улица Сиреневая 50");
-    EXPECT_EQ(orders.front().cost, "1490,00");
+    EXPECT_DOUBLE_EQ(orders.front().cost, 1490.0);
     EXPECT_EQ(orders.front().date.displayString(), "19 Jan 2025");
 }
 

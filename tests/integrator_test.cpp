@@ -7,6 +7,7 @@
 #include <string>
 
 #include "data_integrator.hpp"
+#include "string_utils.hpp"
 
 namespace {
 
@@ -45,7 +46,12 @@ OrderRecord MakeOrder(const std::string& license,
         ADD_FAILURE() << "Не удалось разобрать дату: " << dateText;
         parsed = Date();
     }
-    return OrderRecord{license, address, cost, parsed};
+    double parsedCost = 0.0;
+    if (!string_utils::parseCost(cost, parsedCost)) {
+        ADD_FAILURE() << "Не удалось преобразовать стоимость: " << cost;
+        parsedCost = 0.0;
+    }
+    return OrderRecord{license, address, parsedCost, parsed};
 }
 
 template <typename T>
@@ -212,7 +218,7 @@ TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
     auto firstOrders = integrator.ordersForDriver("VB100");
     ASSERT_EQ(firstOrders.size(), 1u);
     EXPECT_EQ(firstOrders[0].address, "Улица Сиреневая 1");
-    EXPECT_EQ(firstOrders[0].cost, "1000,00");
+    EXPECT_DOUBLE_EQ(firstOrders[0].cost, 1000.0);
     EXPECT_EQ(firstOrders[0].date.displayString(), "01 Dec 2024");
 
     auto lastDriver = integrator.findDriver("VB149");
@@ -223,7 +229,7 @@ TEST(DataIntegratorTest, IntegratorLoadsConfigBasic) {
     auto lastOrders = integrator.ordersForDriver("VB149");
     ASSERT_EQ(lastOrders.size(), 1u);
     EXPECT_EQ(lastOrders[0].address, "Улица Сиреневая 50");
-    EXPECT_EQ(lastOrders[0].cost, "1490,00");
+    EXPECT_DOUBLE_EQ(lastOrders[0].cost, 1490.0);
     EXPECT_EQ(lastOrders[0].date.displayString(), "19 Jan 2025");
 }
 
@@ -397,7 +403,7 @@ TEST(DataIntegratorTest, IntegratorSavesAndReloadsModifications) {
     OrderRecord original = existingOrders[0];
     OrderRecord updatedOrder = original;
     updatedOrder.address = "Проспект Мира 10";
-    updatedOrder.cost = "2700,00";
+    updatedOrder.cost = 2700.0;
     EXPECT_TRUE(integrator.updateOrder(original, updatedOrder));
 
     std::size_t initialOrderCount = integrator.orderCount();

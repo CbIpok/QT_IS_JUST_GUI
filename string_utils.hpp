@@ -28,5 +28,9 @@ bool isLatinFileName(const std::string& path);
 
 bool isValidTxtFilePath(const std::string& path);
 
+bool parseCost(const std::string& text, double& out);
+
+std::string formatCost(double value);
+
 } // namespace string_utils
 
