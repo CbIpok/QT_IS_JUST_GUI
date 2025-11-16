@@ -4,15 +4,16 @@
 #include <string>
 
 #include "date.hpp"
+#include "string_utils.hpp"
 
 struct OrderRecord {
     std::string licenseNumber;
     std::string address;
-    std::string cost;
+    double      cost;
     Date        date;
 
     std::string toString() const {
-        return licenseNumber + "|" + address + "|" + cost + "|" + date.storageString();
+        return licenseNumber + "|" + address + "|" + string_utils::formatCost(cost) + "|" + date.storageString();
     }
 };
 

@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <iomanip>
+#include <sstream>
+#include <string>
+#include <stdexcept>
 
 namespace string_utils {
 
@@ -195,6 +199,55 @@ bool isValidTxtFilePath(const std::string& path) {
         return false;
     }
     return isLatinFileName(path);
+}
+
+bool parseCost(const std::string& text, double& out) {
+    if (text.empty()) {
+        return false;
+    }
+
+    std::size_t commaPos = text.find(',');
+    if (commaPos == std::string::npos) {
+        return false;
+    }
+
+    std::string integerPart = text.substr(0, commaPos);
+    std::string fractionalPart = text.substr(commaPos + 1);
+    if (integerPart.empty() || fractionalPart.size() != 2) {
+        return false;
+    }
+
+    auto isDigit = [](unsigned char ch) { return ch >= '0' && ch <= '9'; };
+    if (!std::all_of(integerPart.begin(), integerPart.end(), isDigit)
+        || !std::all_of(fractionalPart.begin(), fractionalPart.end(), isDigit)) {
+        return false;
+    }
+
+    bool integerAllZeros = std::all_of(integerPart.begin(), integerPart.end(), [](char ch) { return ch == '0'; });
+    if (integerAllZeros && fractionalPart == "00") {
+        return false;
+    }
+
+    std::string normalized = integerPart + '.' + fractionalPart;
+    try {
+        out = std::stod(normalized);
+    }
+    catch (const std::exception&) {
+        return false;
+    }
+    return true;
+}
+
+std::string formatCost(double value) {
+    std::ostringstream out;
+    out.setf(std::ios::fixed);
+    out << std::setprecision(2) << value;
+    std::string result = out.str();
+    std::size_t dotPos = result.find('.');
+    if (dotPos != std::string::npos) {
+        result[dotPos] = ',';
+    }
+    return result;
 }
 
 } // namespace string_utils
